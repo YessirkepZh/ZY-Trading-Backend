@@ -25,4 +25,12 @@ export declare const config: {
         readonly ratio: number;
         readonly riskSum: number;
     };
+    readonly r2: {
+        accountId: string;
+        accessKeyId: string;
+        secretAccessKey: string;
+        bucketName: string;
+        publicUrl: string;
+        endpoint: string;
+    };
 };

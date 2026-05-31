@@ -4,6 +4,7 @@ exports.createDeal = createDeal;
 exports.updateDealStatus = updateDealStatus;
 exports.setClaudeCheck = setClaudeCheck;
 exports.closeDeal = closeDeal;
+exports.setScreenshot = setScreenshot;
 exports.setClaudeStats = setClaudeStats;
 exports.getDealById = getDealById;
 exports.getDeals = getDeals;
@@ -29,6 +30,9 @@ function mapRowToDeal(row) {
         closePrice: row['close_price'] != null ? Number(row['close_price']) : undefined,
         closedAt: row['closed_at'] != null ? new Date(row['closed_at']) : undefined,
         claudeStatsResult: row['claude_stats_result'],
+        screenshotSetup: row['screenshot_setup'],
+        screenshotEntry: row['screenshot_entry'],
+        screenshotClose: row['screenshot_close'],
         createdAt: new Date(row['created_at']),
         updatedAt: new Date(row['updated_at']),
     };
@@ -73,6 +77,10 @@ async function closeDeal(id, closePrice, dealResult) {
      SET status = 'closed', close_price = $2, deal_result = $3,
          closed_at = NOW(), has_deal = TRUE, updated_at = NOW()
      WHERE id = $1`, [id, closePrice, dealResult]);
+}
+async function setScreenshot(id, type, url) {
+    const column = `screenshot_${type}`;
+    await pool_1.pool.query(`UPDATE deals SET ${column} = $1, updated_at = NOW() WHERE id = $2`, [url, id]);
 }
 async function setClaudeStats(id, result) {
     await pool_1.pool.query(`UPDATE deals SET claude_stats_result = $2, updated_at = NOW() WHERE id = $1`, [id, JSON.stringify(result)]);

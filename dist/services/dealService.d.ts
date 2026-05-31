@@ -4,6 +4,7 @@ export declare function createDeal(payload: DealPayload, calcResult: Calculation
 export declare function updateDealStatus(id: number, status: DealStatus, extra?: Partial<Pick<Deal, 'hasDeal'>>): Promise<void>;
 export declare function setClaudeCheck(id: number, result: ClaudeCheckResult): Promise<void>;
 export declare function closeDeal(id: number, closePrice: number, dealResult: 'win' | 'loss' | 'breakeven'): Promise<void>;
+export declare function setScreenshot(id: number, type: 'setup' | 'entry' | 'close', url: string): Promise<void>;
 export declare function setClaudeStats(id: number, result: ClaudeStatsResult): Promise<void>;
 export declare function getDealById(id: number): Promise<Deal | null>;
 export declare function getDeals(filters?: {

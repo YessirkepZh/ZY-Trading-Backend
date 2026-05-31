@@ -10,5 +10,6 @@ export declare function checkSetup(params: {
     calcResult: CalculationResult;
     checklist: ChecklistSnapshot;
     ohlcvSummary: string;
+    screenshotUrl?: string;
 }): Promise<ClaudeCheckResult>;
 export declare function analyzeClosedDeal(deal: Deal): Promise<ClaudeStatsResult>;

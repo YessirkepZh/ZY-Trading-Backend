@@ -5,6 +5,7 @@ import { pool } from './pool';
 const migrations = [
   '001_create_deals.sql',
   '002_create_checklist_snapshots.sql',
+  '003_add_screenshots.sql',
 ];
 
 async function migrate(): Promise<void> {

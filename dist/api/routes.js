@@ -7,6 +7,7 @@ const getDeals_1 = require("./handlers/getDeals");
 const getDealById_1 = require("./handlers/getDealById");
 const getDashboard_1 = require("./handlers/getDashboard");
 const sendAlert_1 = require("./handlers/sendAlert");
+const uploadScreenshot_1 = require("./handlers/uploadScreenshot");
 async function registerRoutes(fastify) {
     // Error handler
     fastify.setErrorHandler((error, _request, reply) => {
@@ -30,5 +31,6 @@ async function registerRoutes(fastify) {
     fastify.get('/api/deals/:id', getDealById_1.getDealByIdHandler);
     fastify.get('/api/dashboard', getDashboard_1.getDashboardHandler);
     fastify.post('/api/sendAlert', sendAlert_1.sendAlertHandler);
+    fastify.post('/api/uploadScreenshot', uploadScreenshot_1.uploadScreenshotHandler);
 }
 //# sourceMappingURL=routes.js.map

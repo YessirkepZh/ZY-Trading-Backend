@@ -9,6 +9,7 @@ const routes_1 = require("./api/routes");
 const handlers_1 = require("./bot/handlers");
 const pool_1 = require("./db/pool");
 const fastify = (0, fastify_1.default)({
+    bodyLimit: 10 * 1024 * 1024, // 10MB for base64 screenshots
     logger: {
         level: config_1.config.nodeEnv === 'production' ? 'info' : 'debug',
     },

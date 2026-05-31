@@ -39,6 +39,7 @@ const marketDataService = __importStar(require("../../services/marketDataService
 const calculationService = __importStar(require("../../services/calculationService"));
 const claudeService = __importStar(require("../../services/claudeService"));
 const dealService = __importStar(require("../../services/dealService"));
+const storageService = __importStar(require("../../services/storageService"));
 const telegramService = __importStar(require("../../services/telegramService"));
 const keyboards_1 = require("../../bot/keyboards");
 async function createNoteHandler(request, reply) {
@@ -48,7 +49,7 @@ async function createNoteHandler(request, reply) {
         return;
     }
     const input = parsed.data;
-    const { ticker, marketType, strategy, direction, entryRaw, customStop, riskPercent, ratio, luftPercent, riskSum, checklist, } = input;
+    const { ticker, marketType, strategy, direction, entryRaw, customStop, riskPercent, ratio, luftPercent, riskSum, checklist, screenshot, } = input;
     // Deduplication check
     const isDuplicate = await dealService.checkDuplicate(ticker, entryRaw, direction);
     if (isDuplicate) {
@@ -78,6 +79,16 @@ async function createNoteHandler(request, reply) {
         checklist,
     };
     const id = await dealService.createDeal(payload, calcResult);
+    // Upload setup screenshot if provided (non-fatal)
+    if (screenshot) {
+        try {
+            const screenshotUrl = await storageService.uploadScreenshot(screenshot, id, 'setup');
+            await dealService.setScreenshot(id, 'setup', screenshotUrl);
+        }
+        catch (err) {
+            request.log.warn({ err }, 'Screenshot upload failed (non-fatal)');
+        }
+    }
     // 4. Claude check
     const ohlcvSummary = marketDataService.formatOhlcvSummary(bars);
     const claudeCheck = await claudeService.checkSetup({

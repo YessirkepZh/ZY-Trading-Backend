@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SendAlertSchema = exports.GetDealsSchema = exports.UpdateDealSchema = exports.CreateNoteSchema = void 0;
+exports.SendAlertSchema = exports.GetDealsSchema = exports.UploadScreenshotSchema = exports.UpdateDealSchema = exports.CreateNoteSchema = void 0;
 const zod_1 = require("zod");
 exports.CreateNoteSchema = zod_1.z.object({
     ticker: zod_1.z
@@ -25,12 +25,19 @@ exports.CreateNoteSchema = zod_1.z.object({
     })
         .optional(),
     inPlay: zod_1.z.boolean().default(false),
+    screenshot: zod_1.z.string().optional(), // base64 PNG from Extension
 });
 exports.UpdateDealSchema = zod_1.z.object({
     id: zod_1.z.number().int().positive(),
     status: zod_1.z.enum(['entered', 'closed', 'missed']),
     closePrice: zod_1.z.number().positive().optional(),
     dealResult: zod_1.z.enum(['win', 'loss', 'breakeven']).optional(),
+    screenshot: zod_1.z.string().optional(), // base64 PNG
+});
+exports.UploadScreenshotSchema = zod_1.z.object({
+    dealId: zod_1.z.number().int().positive(),
+    type: zod_1.z.enum(['setup', 'entry', 'close']),
+    screenshot: zod_1.z.string().min(1), // base64 PNG
 });
 exports.GetDealsSchema = zod_1.z.object({
     status: zod_1.z.enum(['created', 'notified', 'entered', 'closed', 'missed']).optional(),

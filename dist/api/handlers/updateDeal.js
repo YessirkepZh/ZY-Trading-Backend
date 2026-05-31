@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateDealHandler = updateDealHandler;
 const validators_1 = require("../../utils/validators");
 const dealService = __importStar(require("../../services/dealService"));
+const storageService = __importStar(require("../../services/storageService"));
 const claudeService = __importStar(require("../../services/claudeService"));
 async function updateDealHandler(request, reply) {
     const parsed = validators_1.UpdateDealSchema.safeParse(request.body);
@@ -43,7 +44,7 @@ async function updateDealHandler(request, reply) {
         reply.status(400).send({ success: false, error: parsed.error.flatten() });
         return;
     }
-    const { id, status, closePrice, dealResult } = parsed.data;
+    const { id, status, closePrice, dealResult, screenshot } = parsed.data;
     const deal = await dealService.getDealById(id);
     if (!deal) {
         reply.status(404).send({ success: false, error: `Deal #${id} not found` });
@@ -58,6 +59,15 @@ async function updateDealHandler(request, reply) {
             return;
         }
         await dealService.closeDeal(id, closePrice, dealResult);
+        if (screenshot) {
+            try {
+                const url = await storageService.uploadScreenshot(screenshot, id, 'close');
+                await dealService.setScreenshot(id, 'close', url);
+            }
+            catch (err) {
+                console.error('Close screenshot upload failed', err);
+            }
+        }
         // Reload deal for Claude analysis
         const closedDeal = await dealService.getDealById(id);
         if (closedDeal) {
@@ -75,6 +85,15 @@ async function updateDealHandler(request, reply) {
         await dealService.updateDealStatus(id, status, {
             hasDeal: status === 'entered',
         });
+        if (status === 'entered' && screenshot) {
+            try {
+                const url = await storageService.uploadScreenshot(screenshot, id, 'entry');
+                await dealService.setScreenshot(id, 'entry', url);
+            }
+            catch (err) {
+                console.error('Entry screenshot upload failed', err);
+            }
+        }
     }
     reply.send({ success: true, id, status });
 }

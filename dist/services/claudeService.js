@@ -55,6 +55,26 @@ async function callClaude(system, userMessage) {
         return content.text;
     });
 }
+async function callClaudeWithImage(system, text, imageUrl) {
+    return (0, retry_1.retry)(async () => {
+        const content = imageUrl
+            ? [
+                { type: 'image', source: { type: 'url', url: imageUrl } },
+                { type: 'text', text },
+            ]
+            : text;
+        const response = await client.messages.create({
+            model: config_1.config.anthropic.model,
+            max_tokens: 1024,
+            system,
+            messages: [{ role: 'user', content }],
+        });
+        const block = response.content[0];
+        if (!block || block.type !== 'text')
+            throw new Error('Unexpected Claude response');
+        return block.text;
+    });
+}
 function extractJson(text) {
     const match = text.match(/\{[\s\S]*\}/);
     if (!match || !match[0])
@@ -62,7 +82,7 @@ function extractJson(text) {
     return JSON.parse(match[0]);
 }
 async function checkSetup(params) {
-    const { ticker, marketType, strategy, direction, calcResult, checklist, ohlcvSummary } = params;
+    const { ticker, marketType, strategy, direction, calcResult, checklist, ohlcvSummary, screenshotUrl } = params;
     const userMessage = `
 Тикер: ${ticker} (${marketType})
 Стратегия: ${strategy}
@@ -82,7 +102,7 @@ TP: ${calcResult.takeProfitDefault}
 Последние 10 баров OHLCV:
 ${ohlcvSummary}
 `.trim();
-    const text = await callClaude(CHECK_SETUP_SYSTEM, userMessage);
+    const text = await callClaudeWithImage(CHECK_SETUP_SYSTEM, userMessage, screenshotUrl);
     const parsed = extractJson(text);
     return {
         recommendation: parsed.recommendation,
@@ -114,7 +134,32 @@ ${deal.checklistSnapshot ? `
 ` : ''}
 ${deal.claudeCheckResult ? `Рекомендация Claude при входе: ${deal.claudeCheckResult.recommendation} (${deal.claudeCheckResult.confidence}%)` : ''}
 `.trim();
-    const text = await callClaude(ANALYZE_DEAL_SYSTEM, userMessage);
+    const content = [];
+    if (deal.screenshotSetup) {
+        content.push({ type: 'text', text: 'Скриншот сетапа:' });
+        content.push({ type: 'image', source: { type: 'url', url: deal.screenshotSetup } });
+    }
+    if (deal.screenshotEntry) {
+        content.push({ type: 'text', text: 'Скриншот входа:' });
+        content.push({ type: 'image', source: { type: 'url', url: deal.screenshotEntry } });
+    }
+    if (deal.screenshotClose) {
+        content.push({ type: 'text', text: 'Скриншот закрытия:' });
+        content.push({ type: 'image', source: { type: 'url', url: deal.screenshotClose } });
+    }
+    content.push({ type: 'text', text: userMessage });
+    const text = await (0, retry_1.retry)(async () => {
+        const response = await client.messages.create({
+            model: config_1.config.anthropic.model,
+            max_tokens: 1024,
+            system: ANALYZE_DEAL_SYSTEM,
+            messages: [{ role: 'user', content }],
+        });
+        const block = response.content[0];
+        if (!block || block.type !== 'text')
+            throw new Error('Unexpected Claude response');
+        return block.text;
+    });
     const parsed = extractJson(text);
     return {
         summary: parsed.summary,

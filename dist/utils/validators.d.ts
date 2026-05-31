@@ -27,6 +27,7 @@ export declare const CreateNoteSchema: z.ZodObject<{
         wait: z.ZodArray<z.ZodString>;
     }, z.core.$strip>>;
     inPlay: z.ZodDefault<z.ZodBoolean>;
+    screenshot: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 export declare const UpdateDealSchema: z.ZodObject<{
     id: z.ZodNumber;
@@ -41,7 +42,18 @@ export declare const UpdateDealSchema: z.ZodObject<{
         loss: "loss";
         breakeven: "breakeven";
     }>>;
+    screenshot: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
+export declare const UploadScreenshotSchema: z.ZodObject<{
+    dealId: z.ZodNumber;
+    type: z.ZodEnum<{
+        setup: "setup";
+        entry: "entry";
+        close: "close";
+    }>;
+    screenshot: z.ZodString;
+}, z.core.$strip>;
+export type UploadScreenshotInput = z.infer<typeof UploadScreenshotSchema>;
 export declare const GetDealsSchema: z.ZodObject<{
     status: z.ZodOptional<z.ZodEnum<{
         entered: "entered";
