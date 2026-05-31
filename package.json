@@ -1,10 +1,14 @@
 {
   "name": "zy-trading-backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "ZY Trading Backend — personal trader system",
+  "main": "dist/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "migrate": "node dist/db/migrate.js",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [],
   "author": "",

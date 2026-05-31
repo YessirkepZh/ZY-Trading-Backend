@@ -1,0 +1,116 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.calcAtrZy = calcAtrZy;
+exports.calculateDeal = calculateDeal;
+const formatters_1 = require("../utils/formatters");
+const ATR_PERIOD = 7;
+const SPIKE_MULT = 3.0;
+// ── ATR ZY ───────────────────────────────────────────────────────────────────
+function calcTrueRange(bars) {
+    const tr = [];
+    for (let i = 1; i < bars.length; i++) {
+        const curr = bars[i];
+        const prev = bars[i - 1];
+        if (!curr || !prev)
+            continue;
+        const high = curr[2];
+        const low = curr[3];
+        const prevClose = prev[4];
+        tr.push(Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose)));
+    }
+    return tr;
+}
+function calcRMA(values, period) {
+    const alpha = 1 / period;
+    const rma = [];
+    // Seed with SMA of first `period` values
+    let sum = 0;
+    for (let i = 0; i < period; i++) {
+        sum += values[i] ?? 0;
+    }
+    rma.push(sum / period);
+    for (let i = period; i < values.length; i++) {
+        const val = values[i] ?? 0;
+        rma.push(alpha * val + (1 - alpha) * (rma[rma.length - 1] ?? 0));
+    }
+    return rma;
+}
+/**
+ * ATR ZY: compute Wilder RMA → use as spike threshold → filter TR → final RMA.
+ * Returns the final ATR value (last value).
+ */
+function calcAtrZy(bars) {
+    if (bars.length < ATR_PERIOD + 2) {
+        throw new Error(`Not enough bars for ATR calculation (need ${ATR_PERIOD + 2}, got ${bars.length})`);
+    }
+    const tr = calcTrueRange(bars);
+    // Step 1: Wilder ATR as spike threshold reference
+    const wilderRma = calcRMA(tr, ATR_PERIOD);
+    // Step 2: filter TR — clamp spikes at SPIKE_MULT * wilderATR of previous step
+    const filteredTr = [];
+    for (let i = 0; i < tr.length; i++) {
+        const raw = tr[i] ?? 0;
+        // wilderRma is shorter by (ATR_PERIOD - 1) elements relative to tr
+        const wilderIdx = i - (ATR_PERIOD - 1);
+        const threshold = wilderIdx >= 0 ? (wilderRma[wilderIdx] ?? 0) * SPIKE_MULT : raw;
+        filteredTr.push(raw > threshold && wilderIdx >= 0 ? threshold : raw);
+    }
+    // Step 3: final ATR from filtered TR using RMA
+    const finalRma = calcRMA(filteredTr, ATR_PERIOD);
+    return finalRma[finalRma.length - 1] ?? 0;
+}
+function calculateDeal(params) {
+    const { direction, entryRaw, riskPercent, ratio, luftPercent, riskSum, customStop, bars } = params;
+    const price = entryRaw;
+    const isLong = direction === 'long';
+    const n = bars.length;
+    const atr = calcAtrZy(bars);
+    // rangeReserve: uses open of the most recent bar (Pine Script [1] = 1 bar ago from current)
+    const recentOpen = bars[n - 2]?.[1] ?? bars[n - 1]?.[1] ?? price;
+    const rangeReserve = isLong
+        ? (0, formatters_1.round2)(recentOpen + 0.8 * atr)
+        : (0, formatters_1.round2)(recentOpen - 0.8 * atr);
+    // passRoad: % of ATR traveled from bar[4] to bar[1]
+    const open1 = bars[n - 2]?.[1] ?? 0;
+    const open4 = bars[n - 5]?.[1] ?? 0;
+    const passRoad = atr > 0 ? (0, formatters_1.round2)((Math.abs(open1 - open4) / atr) * 100) : null;
+    // Default TP/SL/Qty
+    const riskDefault = atr * (riskPercent / 100);
+    const luft = riskDefault * (luftPercent / 100);
+    const entryPrice = (0, formatters_1.round2)(isLong ? price + luft : price - luft);
+    const stopLossDefault = (0, formatters_1.round2)(isLong ? entryPrice - riskDefault : entryPrice + riskDefault);
+    const takeProfitDefault = (0, formatters_1.round2)(isLong ? entryPrice + ratio * riskDefault : entryPrice - ratio * riskDefault);
+    const quantity = (0, formatters_1.round2)(riskSum / riskDefault);
+    const sum = (0, formatters_1.round2)(quantity * entryPrice);
+    const result = {
+        atr: (0, formatters_1.round2)(atr),
+        rangeReserve,
+        passRoad,
+        entryPrice,
+        stopLossDefault,
+        takeProfitDefault,
+        quantity,
+        sum,
+    };
+    // Custom stop calculations
+    if (customStop !== undefined) {
+        const riskByStop = Math.abs(price - customStop);
+        const luftByStop = riskByStop * (luftPercent / 100);
+        const entryPriceByStop = (0, formatters_1.round2)(isLong ? price + luftByStop : price - luftByStop);
+        const stopLossByStop = (0, formatters_1.round2)(isLong ? entryPriceByStop - riskByStop : entryPriceByStop + riskByStop);
+        const takeProfitByStop = (0, formatters_1.round2)(isLong ? entryPriceByStop + ratio * riskByStop : entryPriceByStop - ratio * riskByStop);
+        const takeProfitByStop2 = (0, formatters_1.round2)(isLong ? entryPriceByStop + (ratio + 1) * riskByStop : entryPriceByStop - (ratio + 1) * riskByStop);
+        const takeProfitByStop3 = (0, formatters_1.round2)(isLong ? entryPriceByStop + (ratio + 2) * riskByStop : entryPriceByStop - (ratio + 2) * riskByStop);
+        const quantityByStop = (0, formatters_1.round2)(riskSum / riskByStop);
+        const sumByStop = (0, formatters_1.round2)(quantityByStop * entryPriceByStop);
+        result.entryPriceByStop = entryPriceByStop;
+        result.stopLossByStop = stopLossByStop;
+        result.takeProfitByStop = takeProfitByStop;
+        result.takeProfitByStop2 = takeProfitByStop2;
+        result.takeProfitByStop3 = takeProfitByStop3;
+        result.quantityByStop = quantityByStop;
+        result.sumByStop = sumByStop;
+    }
+    return result;
+}
+//# sourceMappingURL=calculationService.js.map

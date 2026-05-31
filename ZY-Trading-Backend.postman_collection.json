@@ -1,0 +1,564 @@
+{
+  "info": {
+    "name": "ZY Trading Backend",
+    "description": "Local API collection for ZY Trading Backend (http://localhost:3001)",
+    "_postman_id": "zy-trading-backend-v1",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001",
+      "type": "string"
+    },
+    {
+      "key": "dealId",
+      "value": "1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /api/health",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "health"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Create Note",
+      "item": [
+        {
+          "name": "POST createNote — crypto BTC minimal",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.id) {",
+                  "  pm.collectionVariables.set('dealId', json.id);",
+                  "  console.log('dealId saved:', json.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ticker\": \"BTCUSDT\",\n  \"marketType\": \"crypto\",\n  \"strategy\": \"Пробой\",\n  \"direction\": \"long\",\n  \"entryRaw\": 68000,\n  \"riskPercent\": 15,\n  \"ratio\": 3,\n  \"luftPercent\": 20,\n  \"riskSum\": 15\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/createNote",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "createNote"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST createNote — crypto BTC full (customStop + checklist)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.id) {",
+                  "  pm.collectionVariables.set('dealId', json.id);",
+                  "  console.log('dealId saved:', json.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ticker\": \"BTCUSDT\",\n  \"marketType\": \"crypto\",\n  \"strategy\": \"Пробой\",\n  \"direction\": \"long\",\n  \"entryRaw\": 68000,\n  \"customStop\": 65000,\n  \"riskPercent\": 15,\n  \"ratio\": 3,\n  \"luftPercent\": 20,\n  \"riskSum\": 15,\n  \"inPlay\": false,\n  \"checklist\": {\n    \"plus\": [\"proboy_squeeze\", \"proboy_accumulation\", \"proboy_volume_growth\"],\n    \"minus\": [\"proboy_btc_opposite\"],\n    \"wait\": [\"proboy_wait_retest\"]\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/createNote",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "createNote"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST createNote — crypto ETH Ложный Пробой short",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.id) {",
+                  "  pm.collectionVariables.set('dealId', json.id);",
+                  "  console.log('dealId saved:', json.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ticker\": \"ETHUSDT\",\n  \"marketType\": \"crypto\",\n  \"strategy\": \"Ложный Пробой\",\n  \"direction\": \"short\",\n  \"entryRaw\": 3500,\n  \"customStop\": 3600,\n  \"riskPercent\": 15,\n  \"ratio\": 3,\n  \"luftPercent\": 20,\n  \"riskSum\": 15,\n  \"checklist\": {\n    \"plus\": [\"fp_long_move\", \"fp_v_approach\", \"fp_overbought\"],\n    \"minus\": [\"fp_no_accumulation\"],\n    \"wait\": [\"fp_wait_return_under\", \"fp_wait_close_back\"]\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/createNote",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "createNote"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST createNote — crypto SOL Отбой long",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.id) {",
+                  "  pm.collectionVariables.set('dealId', json.id);",
+                  "  console.log('dealId saved:', json.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ticker\": \"SOLUSDT\",\n  \"marketType\": \"crypto\",\n  \"strategy\": \"Отбой\",\n  \"direction\": \"long\",\n  \"entryRaw\": 170,\n  \"customStop\": 162,\n  \"riskPercent\": 15,\n  \"ratio\": 3,\n  \"luftPercent\": 20,\n  \"riskSum\": 15,\n  \"checklist\": {\n    \"plus\": [\"otboy_touch_level\", \"otboy_volume_at_level\", \"otboy_trend_align\"],\n    \"minus\": [],\n    \"wait\": [\"otboy_wait_pin_bar\"]\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/createNote",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "createNote"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST createNote — stocks AAPL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.id) {",
+                  "  pm.collectionVariables.set('dealId', json.id);",
+                  "  console.log('dealId saved:', json.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ticker\": \"AAPL\",\n  \"marketType\": \"stocks\",\n  \"strategy\": \"Пробой\",\n  \"direction\": \"long\",\n  \"entryRaw\": 195,\n  \"riskPercent\": 15,\n  \"ratio\": 3,\n  \"luftPercent\": 20,\n  \"riskSum\": 15\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/createNote",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "createNote"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST createNote — forex EURUSD (Stooq)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.id) {",
+                  "  pm.collectionVariables.set('dealId', json.id);",
+                  "  console.log('dealId saved:', json.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ticker\": \"EURUSD\",\n  \"marketType\": \"forex\",\n  \"strategy\": \"Отбой\",\n  \"direction\": \"long\",\n  \"entryRaw\": 1.085,\n  \"customStop\": 1.078,\n  \"riskPercent\": 15,\n  \"ratio\": 3,\n  \"luftPercent\": 20,\n  \"riskSum\": 15\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/createNote",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "createNote"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST createNote — 422 validation error (bad input)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ticker\": \"\",\n  \"marketType\": \"unknown\",\n  \"strategy\": \"Пробой\",\n  \"direction\": \"buy\",\n  \"entryRaw\": -1\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/createNote",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "createNote"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Update Deal",
+      "item": [
+        {
+          "name": "POST updateDeal — entered",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": {{dealId}},\n  \"status\": \"entered\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/updateDeal",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "updateDeal"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST updateDeal — missed",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": {{dealId}},\n  \"status\": \"missed\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/updateDeal",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "updateDeal"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST updateDeal — closed WIN (triggers Claude analysis)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": {{dealId}},\n  \"status\": \"closed\",\n  \"closePrice\": 71500,\n  \"dealResult\": \"win\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/updateDeal",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "updateDeal"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST updateDeal — closed LOSS",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": {{dealId}},\n  \"status\": \"closed\",\n  \"closePrice\": 65500,\n  \"dealResult\": \"loss\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/updateDeal",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "updateDeal"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST updateDeal — closed BREAKEVEN",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": {{dealId}},\n  \"status\": \"closed\",\n  \"closePrice\": 68100,\n  \"dealResult\": \"breakeven\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/updateDeal",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "updateDeal"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST updateDeal — 404 not found",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 99999,\n  \"status\": \"entered\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/updateDeal",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "updateDeal"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Deals",
+      "item": [
+        {
+          "name": "GET deals — all (default limit 20)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/deals",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "deals"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET deals — paginated",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/deals?limit=5&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "deals"],
+              "query": [
+                { "key": "limit", "value": "5" },
+                { "key": "offset", "value": "0" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET deals — filter by status=notified",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/deals?status=notified",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "deals"],
+              "query": [
+                { "key": "status", "value": "notified" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET deals — filter by status=closed",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/deals?status=closed",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "deals"],
+              "query": [
+                { "key": "status", "value": "closed" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET deals — filter by strategy Пробой",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/deals?strategy=Пробой&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "deals"],
+              "query": [
+                { "key": "strategy", "value": "Пробой" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET deals/:id — by variable dealId",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/deals/{{dealId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "deals", "{{dealId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET deals/:id — 404 not found",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/deals/99999",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "deals", "99999"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "GET /api/dashboard",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "dashboard"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Send Alert",
+      "item": [
+        {
+          "name": "POST /api/sendAlert — TradingView webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"BTCUSDT пробил уровень 68000 на повышенном объёме\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sendAlert",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sendAlert"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/sendAlert — 400 empty text",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sendAlert",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sendAlert"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

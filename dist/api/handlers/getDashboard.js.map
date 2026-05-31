@@ -1,0 +1,1 @@
+{"version":3,"file":"getDashboard.js","sourceRoot":"","sources":["../../../src/api/handlers/getDashboard.ts"],"names":[],"mappings":";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;AAGA,kDAMC;AARD,wEAA0D;AAEnD,KAAK,UAAU,mBAAmB,CACvC,QAAwB,EACxB,KAAmB;IAEnB,MAAM,KAAK,GAAG,MAAM,WAAW,CAAC,iBAAiB,EAAE,CAAC;IACpD,KAAK,CAAC,IAAI,CAAC,EAAE,OAAO,EAAE,IAAI,EAAE,KAAK,EAAE,CAAC,CAAC;AACvC,CAAC"}
