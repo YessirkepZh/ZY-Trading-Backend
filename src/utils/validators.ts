@@ -23,6 +23,7 @@ export const CreateNoteSchema = z.object({
     })
     .optional(),
   inPlay: z.boolean().default(false),
+  screenshot: z.string().optional(), // base64 PNG from Extension
 });
 
 export const UpdateDealSchema = z.object({
@@ -30,7 +31,16 @@ export const UpdateDealSchema = z.object({
   status: z.enum(['entered', 'closed', 'missed']),
   closePrice: z.number().positive().optional(),
   dealResult: z.enum(['win', 'loss', 'breakeven']).optional(),
+  screenshot: z.string().optional(), // base64 PNG
 });
+
+export const UploadScreenshotSchema = z.object({
+  dealId:     z.number().int().positive(),
+  type:       z.enum(['setup', 'entry', 'close']),
+  screenshot: z.string().min(1), // base64 PNG
+});
+
+export type UploadScreenshotInput = z.infer<typeof UploadScreenshotSchema>;
 
 export const GetDealsSchema = z.object({
   status: z.enum(['created', 'notified', 'entered', 'closed', 'missed']).optional(),

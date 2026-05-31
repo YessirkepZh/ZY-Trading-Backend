@@ -5,6 +5,7 @@ import { getDealsHandler } from './handlers/getDeals';
 import { getDealByIdHandler } from './handlers/getDealById';
 import { getDashboardHandler } from './handlers/getDashboard';
 import { sendAlertHandler } from './handlers/sendAlert';
+import { uploadScreenshotHandler } from './handlers/uploadScreenshot';
 
 export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   // Error handler
@@ -31,4 +32,5 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get<{ Params: { id: string } }>('/api/deals/:id', getDealByIdHandler);
   fastify.get('/api/dashboard', getDashboardHandler);
   fastify.post('/api/sendAlert', sendAlertHandler);
+  fastify.post('/api/uploadScreenshot', uploadScreenshotHandler);
 }

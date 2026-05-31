@@ -22,6 +22,9 @@ function mapRowToDeal(row: Record<string, unknown>): Deal {
     closePrice: row['close_price'] != null ? Number(row['close_price']) : undefined,
     closedAt: row['closed_at'] != null ? new Date(row['closed_at'] as string) : undefined,
     claudeStatsResult: row['claude_stats_result'] as Deal['claudeStatsResult'],
+    screenshotSetup: row['screenshot_setup'] as string | undefined,
+    screenshotEntry: row['screenshot_entry'] as string | undefined,
+    screenshotClose: row['screenshot_close'] as string | undefined,
     createdAt: new Date(row['created_at'] as string),
     updatedAt: new Date(row['updated_at'] as string),
   };
@@ -95,6 +98,18 @@ export async function closeDeal(
          closed_at = NOW(), has_deal = TRUE, updated_at = NOW()
      WHERE id = $1`,
     [id, closePrice, dealResult],
+  );
+}
+
+export async function setScreenshot(
+  id: number,
+  type: 'setup' | 'entry' | 'close',
+  url: string,
+): Promise<void> {
+  const column = `screenshot_${type}`;
+  await pool.query(
+    `UPDATE deals SET ${column} = $1, updated_at = NOW() WHERE id = $2`,
+    [url, id],
   );
 }
 

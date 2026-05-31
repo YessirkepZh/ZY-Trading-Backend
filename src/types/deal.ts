@@ -42,6 +42,9 @@ export interface Deal {
   closePrice?: number;
   closedAt?: Date;
   claudeStatsResult?: ClaudeStatsResult;
+  screenshotSetup?: string;
+  screenshotEntry?: string;
+  screenshotClose?: string;
   createdAt: Date;
   updatedAt: Date;
 }

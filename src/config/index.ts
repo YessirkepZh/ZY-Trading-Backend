@@ -40,4 +40,16 @@ export const config = {
     ratio: Number(process.env['RATIO']) || 3,
     riskSum: Number(process.env['RISK_SUM']) || 15,
   },
+
+  r2: (() => {
+    const accountId = required('R2_ACCOUNT_ID');
+    return {
+      accountId,
+      accessKeyId:     required('R2_ACCESS_KEY_ID'),
+      secretAccessKey: required('R2_SECRET_ACCESS_KEY'),
+      bucketName:      required('R2_BUCKET_NAME'),
+      publicUrl:       required('R2_PUBLIC_URL'),
+      endpoint:        `https://${accountId}.r2.cloudflarestorage.com`,
+    };
+  })(),
 } as const;

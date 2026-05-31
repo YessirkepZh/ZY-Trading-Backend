@@ -5,6 +5,7 @@ import { initBot } from './bot/handlers';
 import { pool } from './db/pool';
 
 const fastify = Fastify({
+  bodyLimit: 10 * 1024 * 1024, // 10MB for base64 screenshots
   logger: {
     level: config.nodeEnv === 'production' ? 'info' : 'debug',
   },

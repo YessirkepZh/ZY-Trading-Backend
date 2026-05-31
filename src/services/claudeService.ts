@@ -58,6 +58,32 @@ async function callClaude(system: string, userMessage: string): Promise<string> 
   });
 }
 
+async function callClaudeWithImage(
+  system: string,
+  text: string,
+  imageUrl?: string,
+): Promise<string> {
+  return retry(async () => {
+    const content: Anthropic.MessageParam['content'] = imageUrl
+      ? [
+          { type: 'image', source: { type: 'url', url: imageUrl } },
+          { type: 'text', text },
+        ]
+      : text;
+
+    const response = await client.messages.create({
+      model: config.anthropic.model,
+      max_tokens: 1024,
+      system,
+      messages: [{ role: 'user', content }],
+    });
+
+    const block = response.content[0];
+    if (!block || block.type !== 'text') throw new Error('Unexpected Claude response');
+    return block.text;
+  });
+}
+
 function extractJson(text: string): unknown {
   const match = text.match(/\{[\s\S]*\}/);
   if (!match || !match[0]) throw new Error('No JSON found in Claude response');
@@ -72,8 +98,9 @@ export async function checkSetup(params: {
   calcResult: CalculationResult;
   checklist: ChecklistSnapshot;
   ohlcvSummary: string;
+  screenshotUrl?: string;
 }): Promise<ClaudeCheckResult> {
-  const { ticker, marketType, strategy, direction, calcResult, checklist, ohlcvSummary } = params;
+  const { ticker, marketType, strategy, direction, calcResult, checklist, ohlcvSummary, screenshotUrl } = params;
 
   const userMessage = `
 Тикер: ${ticker} (${marketType})
@@ -95,7 +122,7 @@ TP: ${calcResult.takeProfitDefault}
 ${ohlcvSummary}
 `.trim();
 
-  const text = await callClaude(CHECK_SETUP_SYSTEM, userMessage);
+  const text = await callClaudeWithImage(CHECK_SETUP_SYSTEM, userMessage, screenshotUrl);
   const parsed = extractJson(text) as {
     recommendation: 'take' | 'skip' | 'wait';
     confidence: number;
@@ -135,7 +162,35 @@ ${deal.checklistSnapshot ? `
 ${deal.claudeCheckResult ? `Рекомендация Claude при входе: ${deal.claudeCheckResult.recommendation} (${deal.claudeCheckResult.confidence}%)` : ''}
 `.trim();
 
-  const text = await callClaude(ANALYZE_DEAL_SYSTEM, userMessage);
+  const content: Anthropic.MessageParam['content'] = [];
+
+  if (deal.screenshotSetup) {
+    content.push({ type: 'text', text: 'Скриншот сетапа:' });
+    content.push({ type: 'image', source: { type: 'url', url: deal.screenshotSetup } });
+  }
+  if (deal.screenshotEntry) {
+    content.push({ type: 'text', text: 'Скриншот входа:' });
+    content.push({ type: 'image', source: { type: 'url', url: deal.screenshotEntry } });
+  }
+  if (deal.screenshotClose) {
+    content.push({ type: 'text', text: 'Скриншот закрытия:' });
+    content.push({ type: 'image', source: { type: 'url', url: deal.screenshotClose } });
+  }
+  content.push({ type: 'text', text: userMessage });
+
+  const text = await retry(async () => {
+    const response = await client.messages.create({
+      model: config.anthropic.model,
+      max_tokens: 1024,
+      system: ANALYZE_DEAL_SYSTEM,
+      messages: [{ role: 'user', content }],
+    });
+
+    const block = response.content[0];
+    if (!block || block.type !== 'text') throw new Error('Unexpected Claude response');
+    return block.text;
+  });
+
   const parsed = extractJson(text) as {
     summary: string;
     mistakes: string[];
