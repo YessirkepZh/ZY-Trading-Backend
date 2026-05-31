@@ -42,7 +42,14 @@ async function sendAlertHandler(request, reply) {
         reply.status(400).send({ success: false, error: parsed.error.flatten() });
         return;
     }
-    await telegramService.sendAlert(parsed.data.text);
+    try {
+        await telegramService.sendAlert(parsed.data.text);
+    }
+    catch (err) {
+        request.log.warn({ err }, 'Telegram sendAlert failed');
+        reply.status(502).send({ success: false, error: 'Telegram unavailable' });
+        return;
+    }
     reply.send({ success: true });
 }
 //# sourceMappingURL=sendAlert.js.map

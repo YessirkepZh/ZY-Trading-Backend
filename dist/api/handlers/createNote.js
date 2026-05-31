@@ -93,11 +93,16 @@ async function createNoteHandler(request, reply) {
     await dealService.setClaudeCheck(id, claudeCheck);
     // 6. Update status
     await dealService.updateDealStatus(id, 'notified');
-    // 7. Send Telegram notification
-    const deal = await dealService.getDealById(id);
-    if (deal) {
-        const keyboard = (0, keyboards_1.getDealActionKeyboard)(id);
-        await telegramService.sendScenario(deal, calcResult, claudeCheck, checklist, keyboard);
+    // 7. Send Telegram notification (non-fatal — bot may be unavailable)
+    try {
+        const deal = await dealService.getDealById(id);
+        if (deal) {
+            const keyboard = (0, keyboards_1.getDealActionKeyboard)(id);
+            await telegramService.sendScenario(deal, calcResult, claudeCheck, checklist, keyboard);
+        }
+    }
+    catch (telegramErr) {
+        request.log.warn({ err: telegramErr }, 'Telegram notification failed (non-fatal)');
     }
     // 8. Return response
     reply.send({ success: true, id, calcResult, claudeCheck });
