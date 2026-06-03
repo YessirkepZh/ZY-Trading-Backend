@@ -128,6 +128,8 @@ export function calculateSetup(params: SetupParams): CalculationResult {
   const price = entryRaw;
   const isLong = direction === 'long';
 
+  const atrPercent = entryRaw > 0 ? round2((atr / entryRaw) * 100) : null;
+
   const rangeReserve = openPrice != null
     ? round2(isLong ? openPrice + 0.8 * atr : openPrice - 0.8 * atr)
     : null;
@@ -143,6 +145,7 @@ export function calculateSetup(params: SetupParams): CalculationResult {
 
   const result: CalculationResult = {
     atr: round2(atr),
+    atrPercent,
     rangeReserve: rangeReserve ?? round2(price),
     passRoad,
     entryPrice,

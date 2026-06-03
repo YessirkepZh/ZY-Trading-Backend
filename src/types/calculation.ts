@@ -1,5 +1,6 @@
 export interface CalculationResult {
   atr: number;
+  atrPercent: number | null;
   rangeReserve: number | null;
   passRoad: number | null;
   entryPrice: number;

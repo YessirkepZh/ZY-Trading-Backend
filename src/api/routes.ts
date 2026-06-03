@@ -6,6 +6,12 @@ import { getDealByIdHandler } from './handlers/getDealById';
 import { getDashboardHandler } from './handlers/getDashboard';
 import { sendAlertHandler } from './handlers/sendAlert';
 import { uploadScreenshotHandler } from './handlers/uploadScreenshot';
+import { createAnalysisHandler } from './handlers/createAnalysis';
+import {
+  getAnalysisReportsHandler,
+  getAnalysisReportByIdHandler,
+  getLatestAnalysisHandler,
+} from './handlers/getAnalysisReports';
 
 export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   // Error handler
@@ -33,4 +39,9 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get('/api/dashboard', getDashboardHandler);
   fastify.post('/api/sendAlert', sendAlertHandler);
   fastify.post('/api/uploadScreenshot', uploadScreenshotHandler);
+
+  fastify.post('/api/analysis', { config: { timeout: 60000 } }, createAnalysisHandler);
+  fastify.get('/api/analysis', getAnalysisReportsHandler);
+  fastify.get('/api/analysis/latest', getLatestAnalysisHandler);
+  fastify.get<{ Params: { id: string } }>('/api/analysis/:id', getAnalysisReportByIdHandler);
 }

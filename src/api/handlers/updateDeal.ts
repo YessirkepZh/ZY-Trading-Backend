@@ -3,6 +3,7 @@ import { UpdateDealSchema } from '../../utils/validators';
 import * as dealService from '../../services/dealService';
 import * as storageService from '../../services/storageService';
 import * as claudeService from '../../services/claudeService';
+import { pool } from '../../db/pool';
 
 export async function updateDealHandler(
   request: FastifyRequest,
@@ -56,6 +57,10 @@ export async function updateDealHandler(
     await dealService.updateDealStatus(id, status, {
       hasDeal: status === 'entered',
     });
+
+    if (status === 'entered') {
+      await pool.query('UPDATE deals SET entered_at = NOW() WHERE id = $1', [id]);
+    }
 
     if (status === 'entered' && screenshot) {
       try {
