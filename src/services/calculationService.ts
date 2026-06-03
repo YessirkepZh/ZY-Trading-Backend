@@ -81,6 +81,28 @@ export function calcAtrZy(bars: OhlcvBar[]): number {
   return finalRma[finalRma.length - 1] ?? 0;
 }
 
+// ── ATR / passRoad helpers (exported for use in handlers) ────────────────────
+
+/** Computes ATR ZY from bars. Returns `{ atr }` for easy destructuring. */
+export function computeAtrZy(bars: OhlcvBar[]): { atr: number } {
+  return { atr: calcAtrZy(bars) };
+}
+
+/**
+ * Computes passRoad (% of ATR consumed by current/last bar body).
+ * Uses currentBar if provided (today's forming candle), otherwise falls back to last closed bar.
+ */
+export function computePassRoad(
+  bars: OhlcvBar[],
+  atr: number,
+  currentBar?: OhlcvBar,
+): number | null {
+  const n = bars.length;
+  const bar = currentBar ?? bars[n - 1];
+  if (!bar || atr <= 0) return null;
+  return round2((Math.abs(bar[4] - bar[1]) / atr) * 100);
+}
+
 // ── Main calculation ─────────────────────────────────────────────────────────
 
 export interface SetupParams {
@@ -175,11 +197,7 @@ export function calculateDeal(params: CalcParams): CalculationResult {
   const n = bars.length;
 
   const atr = calcAtrZy(bars);
-
-  const barForPassRoad = currentBar ?? bars[n - 1];
-  const passRoad = atr > 0 && barForPassRoad
-    ? round2((Math.abs(barForPassRoad[4] - barForPassRoad[1]) / atr) * 100)
-    : null;
+  const passRoad = computePassRoad(bars, atr, currentBar);
 
   return calculateSetup({
     atr,

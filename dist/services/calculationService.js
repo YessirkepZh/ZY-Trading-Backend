@@ -1,6 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.calcAtrZy = calcAtrZy;
+exports.computeAtrZy = computeAtrZy;
+exports.computePassRoad = computePassRoad;
 exports.calculateSetup = calculateSetup;
 exports.calculateDeal = calculateDeal;
 const formatters_1 = require("../utils/formatters");
@@ -71,6 +73,22 @@ function calcAtrZy(bars) {
     const finalRma = calcRMA(filteredTr, ATR_PERIOD);
     return finalRma[finalRma.length - 1] ?? 0;
 }
+// ── ATR / passRoad helpers (exported for use in handlers) ────────────────────
+/** Computes ATR ZY from bars. Returns `{ atr }` for easy destructuring. */
+function computeAtrZy(bars) {
+    return { atr: calcAtrZy(bars) };
+}
+/**
+ * Computes passRoad (% of ATR consumed by current/last bar body).
+ * Uses currentBar if provided (today's forming candle), otherwise falls back to last closed bar.
+ */
+function computePassRoad(bars, atr, currentBar) {
+    const n = bars.length;
+    const bar = currentBar ?? bars[n - 1];
+    if (!bar || atr <= 0)
+        return null;
+    return (0, formatters_1.round2)((Math.abs(bar[4] - bar[1]) / atr) * 100);
+}
 /**
  * Pure calculation: ATR and passRoad are provided directly (e.g. from TradingView Extension).
  * No market data fetch — just computes TP/SL/Qty/rangeReserve.
@@ -126,10 +144,7 @@ function calculateDeal(params) {
     const { direction, entryRaw, riskPercent, ratio, luftPercent, riskSum, customStop, bars, currentBar } = params;
     const n = bars.length;
     const atr = calcAtrZy(bars);
-    const barForPassRoad = currentBar ?? bars[n - 1];
-    const passRoad = atr > 0 && barForPassRoad
-        ? (0, formatters_1.round2)((Math.abs(barForPassRoad[4] - barForPassRoad[1]) / atr) * 100)
-        : null;
+    const passRoad = computePassRoad(bars, atr, currentBar);
     return calculateSetup({
         atr,
         passRoad,

@@ -60,42 +60,37 @@ async function createNoteHandler(request, reply) {
             });
             return;
         }
-        // 1. ATR source: Extension override OR market data API
-        let calcResult;
-        let bars = null;
-        if (atrOverride && atrOverride > 0) {
-            // ATR provided directly from TradingView label — skip market data fetch
-            calcResult = calculationService.calculateSetup({
-                atr: atrOverride,
-                passRoad: passRoadOverride ?? null,
-                direction,
-                entryRaw,
-                riskPercent,
-                ratio,
-                luftPercent,
-                riskSum,
-                customStop,
-            });
-            request.log.info({ ticker, atr: atrOverride, passRoad: passRoadOverride, atrSource: 'extension' }, 'createNote ATR source');
-        }
-        else {
-            // Fallback — fetch candles and compute ATR
-            const marketData = await marketDataService.getMarketData(ticker, marketType);
-            bars = marketData.bars;
-            calcResult = calculationService.calculateDeal({
-                direction,
-                entryRaw,
-                riskPercent,
-                ratio,
-                luftPercent,
-                riskSum,
-                customStop,
-                bars: marketData.bars,
-                currentBar: marketData.currentBar,
-            });
-            request.log.info({ ticker, atr: calcResult.atr, passRoad: calcResult.passRoad, atrSource: 'api' }, 'createNote ATR source');
-        }
-        // 3. Save deal to DB
+        // 1. Always fetch candles — needed for Claude ohlcvSummary
+        const marketData = await marketDataService.getMarketData(ticker, marketType);
+        const { bars, currentBar } = marketData;
+        // 2. ATR — from Extension override or computed from bars
+        const atr = atrOverride && atrOverride > 0
+            ? atrOverride
+            : calculationService.computeAtrZy(bars).atr;
+        // 3. passRoad — from Extension override or computed from bars
+        const passRoad = passRoadOverride != null && passRoadOverride > 0
+            ? passRoadOverride
+            : calculationService.computePassRoad(bars, atr, currentBar);
+        request.log.info({
+            ticker,
+            atrSource: atrOverride && atrOverride > 0 ? 'extension' : 'api',
+            atr,
+            passRoad,
+        }, 'createNote ATR source');
+        // 4. Calculate TP/SL/Qty using resolved ATR
+        const calcResult = calculationService.calculateSetup({
+            atr,
+            passRoad,
+            direction,
+            entryRaw,
+            openPrice: bars[bars.length - 1]?.[1],
+            riskPercent,
+            ratio,
+            luftPercent,
+            riskSum,
+            customStop,
+        });
+        // 5. Save deal to DB
         const payload = {
             ticker, marketType, strategy, direction, entryRaw,
             customStop, riskPercent, ratio, luftPercent, riskSum,
@@ -112,8 +107,8 @@ async function createNoteHandler(request, reply) {
                 request.log.warn({ err }, 'Screenshot upload failed (non-fatal)');
             }
         }
-        // 4. Claude check
-        const ohlcvSummary = bars ? marketDataService.formatOhlcvSummary(bars) : '';
+        // 6. Claude check — always has ohlcvSummary from bars
+        const ohlcvSummary = marketDataService.formatOhlcvSummary(bars);
         const claudeCheck = await claudeService.checkSetup({
             ticker,
             marketType,
@@ -123,11 +118,11 @@ async function createNoteHandler(request, reply) {
             checklist: checklist ?? { plus: [], minus: [], wait: [] },
             ohlcvSummary,
         });
-        // 5. Save Claude result
+        // 7. Save Claude result
         await dealService.setClaudeCheck(id, claudeCheck);
-        // 6. Update status
+        // 8. Update status
         await dealService.updateDealStatus(id, 'notified');
-        // 7. Send Telegram notification (non-fatal — bot may be unavailable)
+        // 9. Send Telegram notification (non-fatal — bot may be unavailable)
         try {
             const deal = await dealService.getDealById(id);
             if (deal) {
@@ -138,7 +133,7 @@ async function createNoteHandler(request, reply) {
         catch (telegramErr) {
             request.log.warn({ err: telegramErr }, 'Telegram notification failed (non-fatal)');
         }
-        // 8. Return response
+        // 10. Return response
         reply.send({ success: true, id, calcResult, claudeCheck });
     }
     catch (err) {

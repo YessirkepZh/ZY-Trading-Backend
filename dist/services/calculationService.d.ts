@@ -10,6 +10,15 @@ import type { OhlcvBar } from '../types/market';
  * Abnormal bars are fully excluded — previous valid TR is carried forward.
  */
 export declare function calcAtrZy(bars: OhlcvBar[]): number;
+/** Computes ATR ZY from bars. Returns `{ atr }` for easy destructuring. */
+export declare function computeAtrZy(bars: OhlcvBar[]): {
+    atr: number;
+};
+/**
+ * Computes passRoad (% of ATR consumed by current/last bar body).
+ * Uses currentBar if provided (today's forming candle), otherwise falls back to last closed bar.
+ */
+export declare function computePassRoad(bars: OhlcvBar[], atr: number, currentBar?: OhlcvBar): number | null;
 export interface SetupParams {
     atr: number;
     passRoad: number | null;
