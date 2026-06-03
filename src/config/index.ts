@@ -7,9 +7,16 @@ function required(key: string): string {
   return val;
 }
 
+function parseCorsOrigins(): string[] | true {
+  const raw = process.env['CORS_ORIGINS']?.trim();
+  if (!raw) return true;
+  return raw.split(',').map(s => s.trim()).filter(Boolean);
+}
+
 export const config = {
   port: Number(process.env['PORT']) || 3001,
   nodeEnv: process.env['NODE_ENV'] || 'development',
+  corsOrigins: parseCorsOrigins(),
 
   telegram: {
     token: required('TELEGRAM_TOKEN'),
