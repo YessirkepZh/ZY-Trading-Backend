@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "ZY Trading Backend",
-    "description": "Local API collection for ZY Trading Backend (http://localhost:3001).\n\nIncludes screenshot upload to Cloudflare R2:\n- createNote: optional `screenshot` (base64 PNG) → saved as setup\n- updateDeal: optional `screenshot` on entered/closed → saved as entry/close\n- uploadScreenshot: standalone upload endpoint\n\nBody limit: 10MB (base64 screenshots).",
+    "description": "Local API collection for ZY Trading Backend (http://localhost:3001).\n\nData sources:\n- crypto: CryptoCompare /data/v2/histoday (CRYPTOCOMPARE_API_KEY required)\n- stocks: Polygon.io\n- forex: Stooq\n\nATR override (from TradingView Extension):\n- createNote accepts optional `atrOverride` and `passRoadOverride`\n- If provided → used directly, market data still fetched for Claude\n- If omitted → ATR computed from candles as usual\n\nScreenshot upload to Cloudflare R2:\n- createNote: optional `screenshot` (base64 PNG) → saved as setup\n- updateDeal: optional `screenshot` on entered/closed → saved as entry/close\n- uploadScreenshot: standalone upload endpoint\n\nBody limit: 10MB (base64 screenshots).",
     "_postman_id": "zy-trading-backend-v1",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
@@ -293,6 +293,78 @@
               "path": ["api", "createNote"]
             },
             "description": "Creates deal and uploads setup screenshot to R2 (non-fatal if upload fails). Claude receives screenshot URL in checkSetup when available."
+          },
+          "response": []
+        },
+        {
+          "name": "POST createNote — crypto BTC with atrOverride (from TradingView)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.id) {",
+                  "  pm.collectionVariables.set('dealId', json.id);",
+                  "  console.log('dealId saved:', json.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ticker\": \"BTCUSDT\",\n  \"marketType\": \"crypto\",\n  \"strategy\": \"Пробой\",\n  \"direction\": \"long\",\n  \"entryRaw\": 68000,\n  \"riskPercent\": 15,\n  \"ratio\": 3,\n  \"luftPercent\": 20,\n  \"riskSum\": 15,\n  \"atrOverride\": 2150.5,\n  \"passRoadOverride\": 38.7\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/createNote",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "createNote"]
+            },
+            "description": "ATR and passRoad passed directly from TradingView Extension label. Market data still fetched for Claude ohlcvSummary. TP/SL/Qty computed from atrOverride."
+          },
+          "response": []
+        },
+        {
+          "name": "POST createNote — stocks TSLA with atrOverride",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.id) {",
+                  "  pm.collectionVariables.set('dealId', json.id);",
+                  "  console.log('dealId saved:', json.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ticker\": \"TSLA\",\n  \"marketType\": \"stocks\",\n  \"strategy\": \"Пробой\",\n  \"direction\": \"long\",\n  \"entryRaw\": 427,\n  \"riskPercent\": 15,\n  \"ratio\": 3,\n  \"luftPercent\": 20,\n  \"riskSum\": 15,\n  \"atrOverride\": 14.26,\n  \"passRoadOverride\": 38.71\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/createNote",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "createNote"]
+            },
+            "description": "ATR 14.26 and passRoad 38.71% taken directly from TradingView PineScript label."
           },
           "response": []
         },
