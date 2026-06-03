@@ -1,5 +1,4 @@
 import Fastify from 'fastify';
-import cors from '@fastify/cors';
 import { config } from './config';
 import { registerRoutes } from './api/routes';
 import { initBot } from './bot/handlers';
@@ -17,14 +16,6 @@ async function main(): Promise<void> {
   await pool.query('SELECT 1');
   fastify.log.info('DB connected');
 
-  // CORS
-  await fastify.register(cors, {
-    origin: [
-      'http://localhost:5173',
-      /\.railway\.app$/,
-    ],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  });
 
   // Register all API routes
   await registerRoutes(fastify);
