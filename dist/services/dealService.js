@@ -41,8 +41,8 @@ function mapRowToDeal(row) {
 async function createDeal(payload, calcResult) {
     const result = await pool_1.pool.query(`INSERT INTO deals
        (ticker, market_type, strategy, direction, entry_raw, status, payload, calc_result,
-        checklist_snapshot, pass_road, atr)
-     VALUES ($1,$2,$3,$4,$5,'created',$6,$7,$8,$9,$10)
+        checklist_snapshot, pass_road, atr, atr_percent)
+     VALUES ($1,$2,$3,$4,$5,'created',$6,$7,$8,$9,$10,$11)
      RETURNING id`, [
         payload.ticker,
         payload.marketType,
@@ -54,6 +54,7 @@ async function createDeal(payload, calcResult) {
         payload.checklist ? JSON.stringify(payload.checklist) : null,
         calcResult.passRoad,
         calcResult.atr,
+        calcResult.atrPercent ?? null,
     ]);
     const row = result.rows[0];
     if (!row)

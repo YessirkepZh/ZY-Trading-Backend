@@ -8,6 +8,8 @@ const getDealById_1 = require("./handlers/getDealById");
 const getDashboard_1 = require("./handlers/getDashboard");
 const sendAlert_1 = require("./handlers/sendAlert");
 const uploadScreenshot_1 = require("./handlers/uploadScreenshot");
+const createAnalysis_1 = require("./handlers/createAnalysis");
+const getAnalysisReports_1 = require("./handlers/getAnalysisReports");
 async function registerRoutes(fastify) {
     // Error handler
     fastify.setErrorHandler((error, _request, reply) => {
@@ -32,5 +34,9 @@ async function registerRoutes(fastify) {
     fastify.get('/api/dashboard', getDashboard_1.getDashboardHandler);
     fastify.post('/api/sendAlert', sendAlert_1.sendAlertHandler);
     fastify.post('/api/uploadScreenshot', uploadScreenshot_1.uploadScreenshotHandler);
+    fastify.post('/api/analysis', { config: { timeout: 60000 } }, createAnalysis_1.createAnalysisHandler);
+    fastify.get('/api/analysis', getAnalysisReports_1.getAnalysisReportsHandler);
+    fastify.get('/api/analysis/latest', getAnalysisReports_1.getLatestAnalysisHandler);
+    fastify.get('/api/analysis/:id', getAnalysisReports_1.getAnalysisReportByIdHandler);
 }
 //# sourceMappingURL=routes.js.map

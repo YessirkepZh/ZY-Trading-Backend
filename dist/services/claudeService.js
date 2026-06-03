@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.checkSetup = checkSetup;
 exports.analyzeClosedDeal = analyzeClosedDeal;
+exports.generateAnalysisReport = generateAnalysisReport;
 const sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
 const config_1 = require("../config");
 const retry_1 = require("../utils/retry");
@@ -166,6 +167,93 @@ ${deal.claudeCheckResult ? `Рекомендация Claude при входе: $
         mistakes: parsed.mistakes ?? [],
         improvements: parsed.improvements ?? [],
         analyzedAt: new Date(),
+    };
+}
+async function generateAnalysisReport(params) {
+    const { periodFrom, periodTo, metrics } = params;
+    const systemPrompt = `Ты — персональный торговый аналитик трейдера.
+Анализируешь статистику сделок за период и генерируешь детальный отчёт.
+Отвечай строго в JSON формате:
+{
+  "summary": "краткое резюме 2-3 предложения",
+  "contentHtml": "полный HTML отчёт"
+}
+
+HTML отчёт должен:
+- Использовать встроенные стили (inline CSS)
+- Тёмная тема: фон #1a1a1a, текст #e0e0e0
+- Включать секции: Общая оценка, Анализ по стратегиям, PassRoad анализ,
+  ATR% режимы, Чек-лист инсайты, День недели, Психология (серии),
+  Ratio анализ, Время до входа, Конкретные рекомендации
+- Зелёный цвет #4caf50 для хороших показателей
+- Красный #f44336 для плохих
+- Оранжевый #ff9800 для средних
+- Таблицы с border-collapse, padding 8px
+- H2 заголовки секций с border-bottom
+- Конкретные правила в конце: "Не входи если passRoad > X%", "Лучший день: Y"`;
+    const userMessage = `Период: ${periodFrom} — ${periodTo}
+Всего сделок: ${metrics.totalDeals}
+Закрытых: ${metrics.closedDeals}
+Win Rate: ${metrics.winRate}%
+Лучшая стратегия: ${metrics.bestStrategy}
+Худшая стратегия: ${metrics.worstStrategy}
+Главная ошибка: ${metrics.topMistake}
+
+PassRoad зоны:
+${JSON.stringify(metrics.winRateByPassRoad, null, 2)}
+
+По стратегиям:
+${JSON.stringify(metrics.winRateByStrategy, null, 2)}
+
+ATR% режимы:
+${JSON.stringify(metrics.winRateByAtrPercent, null, 2)}
+
+Чек-лист корреляция (топ пункты):
+${JSON.stringify(metrics.checklistCorrelation, null, 2)}
+
+День недели:
+${JSON.stringify(metrics.winRateByDayOfWeek, null, 2)}
+
+Серии:
+${JSON.stringify(metrics.streakAnalysis, null, 2)}
+
+Ratio (план vs реальность):
+${JSON.stringify(metrics.ratioAnalysis, null, 2)}
+
+Время до входа:
+${JSON.stringify(metrics.timeToEntryAnalysis, null, 2)}
+
+Сгенерируй детальный HTML отчёт с анализом и конкретными рекомендациями.`;
+    const text = await (0, retry_1.retry)(async () => {
+        const response = await client.messages.create({
+            model: config_1.config.anthropic.model,
+            max_tokens: 4096,
+            system: systemPrompt,
+            messages: [{ role: 'user', content: userMessage }],
+        });
+        const block = response.content[0];
+        if (!block || block.type !== 'text')
+            throw new Error('Unexpected Claude response format');
+        return block.text;
+    });
+    const clean = text.replace(/```json|```/g, '').trim();
+    let parsed;
+    try {
+        parsed = JSON.parse(clean);
+    }
+    catch {
+        const start = clean.indexOf('{');
+        const end = clean.lastIndexOf('}');
+        if (start !== -1 && end !== -1) {
+            parsed = JSON.parse(clean.slice(start, end + 1));
+        }
+        else {
+            throw new Error('Claude returned invalid JSON for analysis report');
+        }
+    }
+    return {
+        summary: parsed.summary ?? '',
+        contentHtml: parsed.contentHtml ?? '',
     };
 }
 //# sourceMappingURL=claudeService.js.map

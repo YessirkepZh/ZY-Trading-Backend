@@ -97,6 +97,7 @@ function calculateSetup(params) {
     const { atr, passRoad, direction, entryRaw, openPrice, riskPercent, ratio, luftPercent, riskSum, customStop } = params;
     const price = entryRaw;
     const isLong = direction === 'long';
+    const atrPercent = entryRaw > 0 ? (0, formatters_1.round2)((atr / entryRaw) * 100) : null;
     const rangeReserve = openPrice != null
         ? (0, formatters_1.round2)(isLong ? openPrice + 0.8 * atr : openPrice - 0.8 * atr)
         : null;
@@ -109,6 +110,7 @@ function calculateSetup(params) {
     const sum = (0, formatters_1.round2)(quantity * entryPrice);
     const result = {
         atr: (0, formatters_1.round2)(atr),
+        atrPercent,
         rangeReserve: rangeReserve ?? (0, formatters_1.round2)(price),
         passRoad,
         entryPrice,

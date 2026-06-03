@@ -35,8 +35,12 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getDashboardHandler = getDashboardHandler;
 const dealService = __importStar(require("../../services/dealService"));
+const analysisReportService = __importStar(require("../../services/analysisReportService"));
 async function getDashboardHandler(_request, reply) {
-    const stats = await dealService.getDashboardStats();
-    reply.send({ success: true, stats });
+    const [stats, latestAnalysis] = await Promise.all([
+        dealService.getDashboardStats(),
+        analysisReportService.getLatestReport(),
+    ]);
+    reply.send({ success: true, stats, latestAnalysis });
 }
 //# sourceMappingURL=getDashboard.js.map

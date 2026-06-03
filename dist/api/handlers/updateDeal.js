@@ -38,6 +38,7 @@ const validators_1 = require("../../utils/validators");
 const dealService = __importStar(require("../../services/dealService"));
 const storageService = __importStar(require("../../services/storageService"));
 const claudeService = __importStar(require("../../services/claudeService"));
+const pool_1 = require("../../db/pool");
 async function updateDealHandler(request, reply) {
     const parsed = validators_1.UpdateDealSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -85,6 +86,9 @@ async function updateDealHandler(request, reply) {
         await dealService.updateDealStatus(id, status, {
             hasDeal: status === 'entered',
         });
+        if (status === 'entered') {
+            await pool_1.pool.query('UPDATE deals SET entered_at = NOW() WHERE id = $1', [id]);
+        }
         if (status === 'entered' && screenshot) {
             try {
                 const url = await storageService.uploadScreenshot(screenshot, id, 'entry');
