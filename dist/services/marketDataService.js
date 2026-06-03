@@ -10,31 +10,37 @@ const sync_1 = require("csv-parse/sync");
 const config_1 = require("../config");
 const retry_1 = require("../utils/retry");
 const BARS_LIMIT = 65;
-// ── Bybit (crypto) ──────────────────────────────────────────────────────────
-async function fetchBybit(symbol) {
+// ── Binance (crypto) ─────────────────────────────────────────────────────────
+async function fetchBinanceOhlcv(ticker) {
     return (0, retry_1.retry)(async () => {
-        const response = await axios_1.default.get('https://api.bybit.com/v5/market/kline', {
-            params: { symbol, category: 'spot', interval: 'D', limit: BARS_LIMIT },
+        const response = await axios_1.default.get('https://api.binance.com/api/v3/klines', {
+            params: {
+                symbol: ticker,
+                interval: '1d',
+                limit: 65,
+            },
             timeout: 10000,
         });
-        if (response.data.retCode !== 0) {
-            throw new Error(`Bybit API error: retCode=${response.data.retCode}`);
+        // Binance returns [timestamp, open, high, low, close, volume, ...]
+        // Remove the last unclosed candle
+        const bars = response.data
+            .slice(0, -1)
+            .map((b) => {
+            const r = b;
+            return [
+                Number(r[0]),
+                parseFloat(r[1]),
+                parseFloat(r[2]),
+                parseFloat(r[3]),
+                parseFloat(r[4]),
+                parseFloat(r[5]),
+            ];
+        });
+        if (bars.length < 10) {
+            throw new Error(`Not enough bars for ${ticker}: ${bars.length}`);
         }
-        // Bybit returns newest-first; reverse to oldest-first
-        const raw = [...response.data.result.list].reverse();
-        const bars = raw.map((r) => [
-            Number(r[0]), // timestamp ms
-            Number(r[1]), // open
-            Number(r[2]), // high
-            Number(r[3]), // low
-            Number(r[4]), // close
-            Number(r[5]), // volume
-        ]);
-        const openBar = bars[bars.length - 1];
-        if (!openBar)
-            throw new Error('No bars returned from Bybit');
-        return { bars, openBar };
-    });
+        return bars;
+    }, { attempts: 3, delayMs: 1000 });
 }
 // ── Polygon.io (stocks) ──────────────────────────────────────────────────────
 async function fetchPolygon(symbol) {
@@ -84,8 +90,13 @@ async function fetchStooq(symbol) {
 // ── Public API ───────────────────────────────────────────────────────────────
 async function getMarketData(symbol, marketType) {
     switch (marketType) {
-        case 'crypto':
-            return fetchBybit(symbol);
+        case 'crypto': {
+            const bars = await fetchBinanceOhlcv(symbol);
+            const openBar = bars[bars.length - 2];
+            if (!openBar)
+                throw new Error(`No openBar for ${symbol}`);
+            return { bars, openBar };
+        }
         case 'stocks':
             return fetchPolygon(symbol);
         case 'forex':

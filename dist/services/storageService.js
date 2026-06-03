@@ -10,6 +10,9 @@ const s3 = new client_s3_1.S3Client({
         accessKeyId: config_1.config.r2.accessKeyId,
         secretAccessKey: config_1.config.r2.secretAccessKey,
     },
+    // AWS SDK 3.729+ adds CRC32 checksums by default; R2 is incompatible → SignatureDoesNotMatch
+    requestChecksumCalculation: 'WHEN_REQUIRED',
+    responseChecksumValidation: 'WHEN_REQUIRED',
 });
 /**
  * Upload a base64 screenshot to Cloudflare R2.

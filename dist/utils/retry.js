@@ -10,7 +10,10 @@ async function retry(fn, options = {}) {
         catch (err) {
             if (i === attempts - 1)
                 throw err;
-            onRetry?.(err, i + 1);
+            const handler = onRetry ?? ((e, attempt) => {
+                console.warn(`[retry] attempt ${attempt}/${attempts - 1} failed:`, e.message);
+            });
+            handler(err, i + 1);
             await new Promise((r) => setTimeout(r, delayMs * Math.pow(2, i)));
         }
     }

@@ -19,10 +19,6 @@ exports.config = {
         token: required('TELEGRAM_TOKEN'),
         allowedUsers: required('ALLOWED_USERS').split(',').map(Number),
     },
-    bybit: {
-        apiKey: process.env['BYBIT_API_KEY'] || '',
-        apiSecret: process.env['BYBIT_API_SECRET'] || '',
-    },
     polygon: {
         apiKey: required('POLYGON_API_KEY'),
     },

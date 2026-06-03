@@ -5,10 +5,6 @@ export declare const config: {
         readonly token: string;
         readonly allowedUsers: number[];
     };
-    readonly bybit: {
-        readonly apiKey: string;
-        readonly apiSecret: string;
-    };
     readonly polygon: {
         readonly apiKey: string;
     };

@@ -83,6 +83,7 @@ function initBot() {
             await bot.sendMessage(msg.chat.id, text, { parse_mode: 'Markdown' });
         }
         catch (err) {
+            console.error('[bot /deals]', err);
             await bot.sendMessage(msg.chat.id, `❌ Ошибка: ${err.message}`);
         }
     });
@@ -98,6 +99,7 @@ function initBot() {
             await bot.sendMessage(msg.chat.id, text, { parse_mode: 'Markdown' });
         }
         catch (err) {
+            console.error('[bot /stats]', err);
             await bot.sendMessage(msg.chat.id, `❌ Ошибка: ${err.message}`);
         }
     });
@@ -124,6 +126,7 @@ function initBot() {
             await bot.sendMessage(msg.chat.id, lines.join('\n'), { parse_mode: 'Markdown' });
         }
         catch (err) {
+            console.error('[bot /deal]', err);
             await bot.sendMessage(msg.chat.id, `❌ Ошибка: ${err.message}`);
         }
     });
@@ -189,6 +192,7 @@ function initBot() {
             });
         }
         catch (err) {
+            console.error('[bot manual input]', err);
             await bot.sendMessage(msg.chat.id, `❌ Ошибка: ${err.message}`);
         }
     });
@@ -216,6 +220,7 @@ function initBot() {
             }
         }
         catch (err) {
+            console.error('[bot callback_query]', err);
             await bot.answerCallbackQuery(query.id, { text: `Ошибка: ${err.message}` });
         }
     });
