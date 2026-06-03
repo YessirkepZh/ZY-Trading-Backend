@@ -51,6 +51,7 @@ export function initBot(): void {
       const text = deals.map(formatDealSummary).join('\n\n');
       await bot.sendMessage(msg.chat.id, text, { parse_mode: 'Markdown' });
     } catch (err) {
+      console.error('[bot /deals]', err);
       await bot.sendMessage(msg.chat.id, `❌ Ошибка: ${(err as Error).message}`);
     }
   });
@@ -66,6 +67,7 @@ export function initBot(): void {
         `Avg passRoad (wins): ${stats.avgPassRoad}%`;
       await bot.sendMessage(msg.chat.id, text, { parse_mode: 'Markdown' });
     } catch (err) {
+      console.error('[bot /stats]', err);
       await bot.sendMessage(msg.chat.id, `❌ Ошибка: ${(err as Error).message}`);
     }
   });
@@ -90,6 +92,7 @@ export function initBot(): void {
       }
       await bot.sendMessage(msg.chat.id, lines.join('\n'), { parse_mode: 'Markdown' });
     } catch (err) {
+      console.error('[bot /deal]', err);
       await bot.sendMessage(msg.chat.id, `❌ Ошибка: ${(err as Error).message}`);
     }
   });
@@ -164,6 +167,7 @@ export function initBot(): void {
         reply_markup: keyboard,
       });
     } catch (err) {
+      console.error('[bot manual input]', err);
       await bot.sendMessage(msg.chat.id, `❌ Ошибка: ${(err as Error).message}`);
     }
   });
@@ -188,6 +192,7 @@ export function initBot(): void {
         await bot.answerCallbackQuery(query.id);
       }
     } catch (err) {
+      console.error('[bot callback_query]', err);
       await bot.answerCallbackQuery(query.id, { text: `Ошибка: ${(err as Error).message}` });
     }
   });

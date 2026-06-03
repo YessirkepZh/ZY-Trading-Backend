@@ -7,35 +7,30 @@ import type { MarketData, OhlcvBar } from '../types/market';
 
 const BARS_LIMIT = 65;
 
-// ── Bybit (crypto) ──────────────────────────────────────────────────────────
+// ── Binance (crypto) ─────────────────────────────────────────────────────────
 
-async function fetchBybit(symbol: string): Promise<MarketData> {
+async function fetchBinance(symbol: string): Promise<MarketData> {
   return retry(async () => {
-    const response = await axios.get<{
-      retCode: number;
-      result: { list: string[][] };
-    }>('https://api.bybit.com/v5/market/kline', {
-      params: { symbol, category: 'spot', interval: 'D', limit: BARS_LIMIT },
-      timeout: 10000,
-    });
+    const response = await axios.get<unknown[][]>(
+      'https://api.binance.com/api/v3/klines',
+      {
+        params: { symbol, interval: '1d', limit: BARS_LIMIT },
+        timeout: 10000,
+      },
+    );
 
-    if (response.data.retCode !== 0) {
-      throw new Error(`Bybit API error: retCode=${response.data.retCode}`);
-    }
-
-    // Bybit returns newest-first; reverse to oldest-first
-    const raw = [...response.data.result.list].reverse();
-    const bars: OhlcvBar[] = raw.map((r) => [
-      Number(r[0]),  // timestamp ms
-      Number(r[1]),  // open
-      Number(r[2]),  // high
-      Number(r[3]),  // low
-      Number(r[4]),  // close
-      Number(r[5]),  // volume
+    // Binance returns oldest-first; last element is the unclosed candle — remove it
+    const bars: OhlcvBar[] = response.data.slice(0, -1).map((r) => [
+      Number(r[0]),
+      Number(r[1]),
+      Number(r[2]),
+      Number(r[3]),
+      Number(r[4]),
+      Number(r[5]),
     ]);
 
-    const openBar = bars[bars.length - 1];
-    if (!openBar) throw new Error('No bars returned from Bybit');
+    const openBar = bars[bars.length - 2];
+    if (!openBar) throw new Error('No bars returned from Binance');
     return { bars, openBar };
   });
 }
@@ -108,7 +103,7 @@ export async function getMarketData(
 ): Promise<MarketData> {
   switch (marketType) {
     case 'crypto':
-      return fetchBybit(symbol);
+      return fetchBinance(symbol);
     case 'stocks':
       return fetchPolygon(symbol);
     case 'forex':

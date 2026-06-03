@@ -8,6 +8,9 @@ const s3 = new S3Client({
     accessKeyId:     config.r2.accessKeyId,
     secretAccessKey: config.r2.secretAccessKey,
   },
+  // AWS SDK 3.729+ adds CRC32 checksums by default; R2 is incompatible → SignatureDoesNotMatch
+  requestChecksumCalculation: 'WHEN_REQUIRED',
+  responseChecksumValidation: 'WHEN_REQUIRED',
 });
 
 /**

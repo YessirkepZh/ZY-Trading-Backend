@@ -41,8 +41,12 @@ function calcRMA(values: number[], period: number): number[] {
 }
 
 /**
- * ATR ZY: compute Wilder RMA → use as spike threshold → filter TR → final RMA.
- * Returns the final ATR value (last value).
+ * ATR ZY: Wilder RMA as spike reference → skip abnormal bars (carry-forward) → final RMA.
+ *
+ * Matches PineScript logic: `filteredTR := isSpike ? filteredTR[1] : tr`
+ * Spike  (too large): tr > wilderATR * SPIKE_MULT
+ * Tiny   (too small): tr < wilderATR / SPIKE_MULT
+ * Abnormal bars are fully excluded — previous valid TR is carried forward.
  */
 export function calcAtrZy(bars: OhlcvBar[]): number {
   if (bars.length < ATR_PERIOD + 2) {
@@ -51,17 +55,25 @@ export function calcAtrZy(bars: OhlcvBar[]): number {
 
   const tr = calcTrueRange(bars);
 
-  // Step 1: Wilder ATR as spike threshold reference
+  // Step 1: Wilder ATR as spike/tiny threshold reference
   const wilderRma = calcRMA(tr, ATR_PERIOD);
 
-  // Step 2: filter TR — clamp spikes at SPIKE_MULT * wilderATR of previous step
+  // Step 2: skip abnormal bars — carry forward last valid TR (PineScript: filteredTR[1])
   const filteredTr: number[] = [];
   for (let i = 0; i < tr.length; i++) {
     const raw = tr[i] ?? 0;
     // wilderRma is shorter by (ATR_PERIOD - 1) elements relative to tr
     const wilderIdx = i - (ATR_PERIOD - 1);
-    const threshold = wilderIdx >= 0 ? (wilderRma[wilderIdx] ?? 0) * SPIKE_MULT : raw;
-    filteredTr.push(raw > threshold && wilderIdx >= 0 ? threshold : raw);
+    const atrRef = wilderIdx >= 0 ? (wilderRma[wilderIdx] ?? 0) : 0;
+
+    const isSpike = atrRef > 0 && raw > atrRef * SPIKE_MULT;
+    const isTiny  = atrRef > 0 && raw < atrRef / SPIKE_MULT;
+
+    if ((isSpike || isTiny) && filteredTr.length > 0) {
+      filteredTr.push(filteredTr[filteredTr.length - 1] ?? raw);
+    } else {
+      filteredTr.push(raw);
+    }
   }
 
   // Step 3: final ATR from filtered TR using RMA

@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "ZY Trading Backend",
-    "description": "Local API collection for ZY Trading Backend (http://localhost:3001)",
+    "description": "Local API collection for ZY Trading Backend (http://localhost:3001).\n\nIncludes screenshot upload to Cloudflare R2:\n- createNote: optional `screenshot` (base64 PNG) → saved as setup\n- updateDeal: optional `screenshot` on entered/closed → saved as entry/close\n- uploadScreenshot: standalone upload endpoint\n\nBody limit: 10MB (base64 screenshots).",
     "_postman_id": "zy-trading-backend-v1",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
@@ -15,6 +15,18 @@
       "key": "dealId",
       "value": "1",
       "type": "string"
+    },
+    {
+      "key": "screenshotBase64",
+      "value": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      "type": "string",
+      "description": "Minimal 1x1 PNG for testing screenshot upload (replace with real chart screenshot from Extension)"
+    },
+    {
+      "key": "lastScreenshotUrl",
+      "value": "",
+      "type": "string",
+      "description": "Set automatically after successful uploadScreenshot request"
     }
   ],
   "item": [
@@ -249,7 +261,43 @@
           "response": []
         },
         {
-          "name": "POST createNote — 422 validation error (bad input)",
+          "name": "POST createNote — crypto BTC with setup screenshot",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.id) {",
+                  "  pm.collectionVariables.set('dealId', json.id);",
+                  "  console.log('dealId saved:', json.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ticker\": \"BTCUSDT\",\n  \"marketType\": \"crypto\",\n  \"strategy\": \"Пробой\",\n  \"direction\": \"long\",\n  \"entryRaw\": 68000,\n  \"riskPercent\": 15,\n  \"ratio\": 3,\n  \"luftPercent\": 20,\n  \"riskSum\": 15,\n  \"screenshot\": \"{{screenshotBase64}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/createNote",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "createNote"]
+            },
+            "description": "Creates deal and uploads setup screenshot to R2 (non-fatal if upload fails). Claude receives screenshot URL in checkSetup when available."
+          },
+          "response": []
+        },
+        {
+          "name": "POST createNote — 400 validation error (bad input)",
           "request": {
             "method": "POST",
             "header": [
@@ -294,6 +342,27 @@
           "response": []
         },
         {
+          "name": "POST updateDeal — entered with entry screenshot",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": {{dealId}},\n  \"status\": \"entered\",\n  \"screenshot\": \"{{screenshotBase64}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/updateDeal",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "updateDeal"]
+            },
+            "description": "Marks deal as entered and uploads entry screenshot to R2 (non-fatal if upload fails)."
+          },
+          "response": []
+        },
+        {
           "name": "POST updateDeal — missed",
           "request": {
             "method": "POST",
@@ -329,7 +398,29 @@
               "raw": "{{baseUrl}}/api/updateDeal",
               "host": ["{{baseUrl}}"],
               "path": ["api", "updateDeal"]
-            }
+            },
+            "description": "Closes deal and runs Claude analyzeClosedDeal (includes setup/entry/close screenshot URLs if present)."
+          },
+          "response": []
+        },
+        {
+          "name": "POST updateDeal — closed WIN with close screenshot",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": {{dealId}},\n  \"status\": \"closed\",\n  \"closePrice\": 71500,\n  \"dealResult\": \"win\",\n  \"screenshot\": \"{{screenshotBase64}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/updateDeal",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "updateDeal"]
+            },
+            "description": "Closes deal, uploads close screenshot to R2, then runs Claude analysis with all available screenshots."
           },
           "response": []
         },
@@ -480,7 +571,8 @@
               "raw": "{{baseUrl}}/api/deals/{{dealId}}",
               "host": ["{{baseUrl}}"],
               "path": ["api", "deals", "{{dealId}}"]
-            }
+            },
+            "description": "Returns deal with screenshotSetup, screenshotEntry, screenshotClose URL fields when uploaded."
           },
           "response": []
         },
@@ -509,6 +601,128 @@
               "raw": "{{baseUrl}}/api/dashboard",
               "host": ["{{baseUrl}}"],
               "path": ["api", "dashboard"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Screenshots",
+      "description": "Standalone screenshot upload to Cloudflare R2. Also available inline via createNote (setup) and updateDeal (entry/close).",
+      "item": [
+        {
+          "name": "POST uploadScreenshot — setup",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.url) {",
+                  "  pm.collectionVariables.set('lastScreenshotUrl', json.url);",
+                  "  console.log('Screenshot URL:', json.url);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dealId\": {{dealId}},\n  \"type\": \"setup\",\n  \"screenshot\": \"{{screenshotBase64}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/uploadScreenshot",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "uploadScreenshot"]
+            },
+            "description": "Upload setup screenshot for existing deal. Returns `{ success: true, url }`."
+          },
+          "response": []
+        },
+        {
+          "name": "POST uploadScreenshot — entry",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dealId\": {{dealId}},\n  \"type\": \"entry\",\n  \"screenshot\": \"{{screenshotBase64}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/uploadScreenshot",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "uploadScreenshot"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST uploadScreenshot — close",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dealId\": {{dealId}},\n  \"type\": \"close\",\n  \"screenshot\": \"{{screenshotBase64}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/uploadScreenshot",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "uploadScreenshot"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST uploadScreenshot — 404 deal not found",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dealId\": 99999,\n  \"type\": \"setup\",\n  \"screenshot\": \"{{screenshotBase64}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/uploadScreenshot",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "uploadScreenshot"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST uploadScreenshot — 400 validation error",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dealId\": {{dealId}},\n  \"type\": \"invalid\",\n  \"screenshot\": \"\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/uploadScreenshot",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "uploadScreenshot"]
             }
           },
           "response": []
