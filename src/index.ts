@@ -19,8 +19,8 @@ async function main(): Promise<void> {
 
   await fastify.register(cors, {
     origin: config.corsOrigins,
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   // Register all API routes

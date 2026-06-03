@@ -7,10 +7,22 @@ function required(key: string): string {
   return val;
 }
 
+const DEFAULT_PRODUCTION_ORIGINS = [
+  'https://zy-trading-frontend-production.up.railway.app',
+  'http://localhost:3000',
+  'http://localhost:5173',
+];
+
 function parseCorsOrigins(): string[] | true {
   const raw = process.env['CORS_ORIGINS']?.trim();
-  if (!raw) return true;
-  return raw.split(',').map(s => s.trim()).filter(Boolean);
+  if (raw) {
+    return raw.split(',').map(s => s.trim().replace(/\/$/, '')).filter(Boolean);
+  }
+  const nodeEnv = process.env['NODE_ENV'] || 'development';
+  if (nodeEnv === 'production') {
+    return DEFAULT_PRODUCTION_ORIGINS;
+  }
+  return true;
 }
 
 export const config = {

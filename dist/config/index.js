@@ -12,9 +12,26 @@ function required(key) {
         throw new Error(`Missing required env variable: ${key}`);
     return val;
 }
+const DEFAULT_PRODUCTION_ORIGINS = [
+    'https://zy-trading-frontend-production.up.railway.app',
+    'http://localhost:3000',
+    'http://localhost:5173',
+];
+function parseCorsOrigins() {
+    const raw = process.env['CORS_ORIGINS']?.trim();
+    if (raw) {
+        return raw.split(',').map(s => s.trim().replace(/\/$/, '')).filter(Boolean);
+    }
+    const nodeEnv = process.env['NODE_ENV'] || 'development';
+    if (nodeEnv === 'production') {
+        return DEFAULT_PRODUCTION_ORIGINS;
+    }
+    return true;
+}
 exports.config = {
     port: Number(process.env['PORT']) || 3001,
     nodeEnv: process.env['NODE_ENV'] || 'development',
+    corsOrigins: parseCorsOrigins(),
     telegram: {
         token: required('TELEGRAM_TOKEN'),
         allowedUsers: required('ALLOWED_USERS').split(',').map(Number),

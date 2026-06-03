@@ -1,6 +1,7 @@
 export declare const config: {
     readonly port: number;
     readonly nodeEnv: string;
+    readonly corsOrigins: true | string[];
     readonly telegram: {
         readonly token: string;
         readonly allowedUsers: number[];

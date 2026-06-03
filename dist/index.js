@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const fastify_1 = __importDefault(require("fastify"));
+const cors_1 = __importDefault(require("@fastify/cors"));
 const config_1 = require("./config");
 const routes_1 = require("./api/routes");
 const handlers_1 = require("./bot/handlers");
@@ -18,6 +19,11 @@ async function main() {
     // Verify DB connection
     await pool_1.pool.query('SELECT 1');
     fastify.log.info('DB connected');
+    await fastify.register(cors_1.default, {
+        origin: config_1.config.corsOrigins,
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    });
     // Register all API routes
     await (0, routes_1.registerRoutes)(fastify);
     // Start Telegram Bot (polling)
