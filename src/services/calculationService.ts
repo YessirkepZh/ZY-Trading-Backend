@@ -92,10 +92,12 @@ export interface CalcParams {
   riskSum: number;
   customStop?: number;
   bars: OhlcvBar[];
+  /** Current (potentially unclosed) bar — used for passRoad (PineScript parity) */
+  currentBar?: OhlcvBar;
 }
 
 export function calculateDeal(params: CalcParams): CalculationResult {
-  const { direction, entryRaw, riskPercent, ratio, luftPercent, riskSum, customStop, bars } = params;
+  const { direction, entryRaw, riskPercent, ratio, luftPercent, riskSum, customStop, bars, currentBar } = params;
   const price = entryRaw;
   const isLong = direction === 'long';
   const n = bars.length;
@@ -108,10 +110,12 @@ export function calculateDeal(params: CalcParams): CalculationResult {
     ? round2(recentOpen + 0.8 * atr)
     : round2(recentOpen - 0.8 * atr);
 
-  // passRoad: % of ATR traveled from bar[4] to bar[1]
-  const open1 = bars[n - 2]?.[1] ?? 0;
-  const open4 = bars[n - 5]?.[1] ?? 0;
-  const passRoad = atr > 0 ? round2((Math.abs(open1 - open4) / atr) * 100) : null;
+  // passRoad: |close - open| / ATR * 100 — PineScript parity (rangeFromOpen / atrFiltered)
+  // Uses currentBar (today's live candle) if available, otherwise falls back to openBar (last closed)
+  const barForPassRoad = currentBar ?? bars[n - 1];
+  const passRoad = atr > 0 && barForPassRoad
+    ? round2((Math.abs(barForPassRoad[4] - barForPassRoad[1]) / atr) * 100)
+    : null;
 
   // Default TP/SL/Qty
   const riskDefault = atr * (riskPercent / 100);

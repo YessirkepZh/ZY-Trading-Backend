@@ -19,5 +19,7 @@ export interface CalcParams {
     riskSum: number;
     customStop?: number;
     bars: OhlcvBar[];
+    /** Current (potentially unclosed) bar — used for passRoad (PineScript parity) */
+    currentBar?: OhlcvBar;
 }
 export declare function calculateDeal(params: CalcParams): CalculationResult;

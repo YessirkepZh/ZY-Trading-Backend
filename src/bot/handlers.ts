@@ -115,7 +115,7 @@ export function initBot(): void {
         return;
       }
 
-      const { bars } = await marketDataService.getMarketData(ticker, 'crypto');
+      const { bars, currentBar } = await marketDataService.getMarketData(ticker, 'crypto');
       const calcResult = calculationService.calculateDeal({
         direction,
         entryRaw,
@@ -125,6 +125,7 @@ export function initBot(): void {
         riskSum: config.risk.riskSum,
         customStop,
         bars,
+        currentBar,
       });
 
       const payload = {

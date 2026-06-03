@@ -61,7 +61,7 @@ async function createNoteHandler(request, reply) {
             return;
         }
         // 1. Market data
-        const { bars } = await marketDataService.getMarketData(ticker, marketType);
+        const { bars, currentBar } = await marketDataService.getMarketData(ticker, marketType);
         // 2. Calculate ATR + TP/SL/Qty
         const calcResult = calculationService.calculateDeal({
             direction,
@@ -72,6 +72,7 @@ async function createNoteHandler(request, reply) {
             riskSum,
             customStop,
             bars,
+            currentBar,
         });
         // 3. Save deal to DB
         const payload = {

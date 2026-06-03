@@ -145,7 +145,7 @@ function initBot() {
                 await bot.sendMessage(msg.chat.id, '⚠️ Такой сетап уже создан (дубликат за 30 сек).');
                 return;
             }
-            const { bars } = await marketDataService.getMarketData(ticker, 'crypto');
+            const { bars, currentBar } = await marketDataService.getMarketData(ticker, 'crypto');
             const calcResult = calculationService.calculateDeal({
                 direction,
                 entryRaw,
@@ -155,6 +155,7 @@ function initBot() {
                 riskSum: config_1.config.risk.riskSum,
                 customStop,
                 bars,
+                currentBar,
             });
             const payload = {
                 ticker,

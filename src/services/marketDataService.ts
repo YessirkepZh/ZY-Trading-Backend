@@ -21,20 +21,18 @@ async function fetchBinanceOhlcv(ticker: string): Promise<OhlcvBar[]> {
     });
 
     // Binance returns [timestamp, open, high, low, close, volume, ...]
-    // Remove the last unclosed candle
-    const bars: OhlcvBar[] = (response.data as unknown[])
-      .slice(0, -1)
-      .map((b) => {
-        const r = b as unknown[];
-        return [
-          Number(r[0]),
-          parseFloat(r[1] as string),
-          parseFloat(r[2] as string),
-          parseFloat(r[3] as string),
-          parseFloat(r[4] as string),
-          parseFloat(r[5] as string),
-        ];
-      });
+    // Keep all bars — last one is the current (potentially unclosed) day candle
+    const bars: OhlcvBar[] = (response.data as unknown[]).map((b) => {
+      const r = b as unknown[];
+      return [
+        Number(r[0]),
+        parseFloat(r[1] as string),
+        parseFloat(r[2] as string),
+        parseFloat(r[3] as string),
+        parseFloat(r[4] as string),
+        parseFloat(r[5] as string),
+      ];
+    });
 
     if (bars.length < 10) {
       throw new Error(`Not enough bars for ${ticker}: ${bars.length}`);
@@ -112,10 +110,14 @@ export async function getMarketData(
 ): Promise<MarketData> {
   switch (marketType) {
     case 'crypto': {
-      const bars = await fetchBinanceOhlcv(symbol);
-      const openBar = bars[bars.length - 2];
+      const allBars = await fetchBinanceOhlcv(symbol);
+      // Last bar = current (potentially unclosed) day candle → used for passRoad
+      const currentBar = allBars[allBars.length - 1];
+      // Closed bars only (exclude current day) → used for ATR + entry calculations
+      const bars = allBars.slice(0, -1);
+      const openBar = bars[bars.length - 1];
       if (!openBar) throw new Error(`No openBar for ${symbol}`);
-      return { bars, openBar };
+      return { bars, openBar, currentBar };
     }
     case 'stocks':
       return fetchPolygon(symbol);

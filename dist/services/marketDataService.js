@@ -22,10 +22,8 @@ async function fetchBinanceOhlcv(ticker) {
             timeout: 10000,
         });
         // Binance returns [timestamp, open, high, low, close, volume, ...]
-        // Remove the last unclosed candle
-        const bars = response.data
-            .slice(0, -1)
-            .map((b) => {
+        // Keep all bars — last one is the current (potentially unclosed) day candle
+        const bars = response.data.map((b) => {
             const r = b;
             return [
                 Number(r[0]),
@@ -91,11 +89,15 @@ async function fetchStooq(symbol) {
 async function getMarketData(symbol, marketType) {
     switch (marketType) {
         case 'crypto': {
-            const bars = await fetchBinanceOhlcv(symbol);
-            const openBar = bars[bars.length - 2];
+            const allBars = await fetchBinanceOhlcv(symbol);
+            // Last bar = current (potentially unclosed) day candle → used for passRoad
+            const currentBar = allBars[allBars.length - 1];
+            // Closed bars only (exclude current day) → used for ATR + entry calculations
+            const bars = allBars.slice(0, -1);
+            const openBar = bars[bars.length - 1];
             if (!openBar)
                 throw new Error(`No openBar for ${symbol}`);
-            return { bars, openBar };
+            return { bars, openBar, currentBar };
         }
         case 'stocks':
             return fetchPolygon(symbol);
