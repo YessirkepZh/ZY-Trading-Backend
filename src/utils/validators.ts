@@ -23,7 +23,9 @@ export const CreateNoteSchema = z.object({
     })
     .optional(),
   inPlay: z.boolean().default(false),
-  screenshot: z.string().optional(), // base64 PNG from Extension
+  screenshot: z.string().optional(),       // base64 PNG from Extension
+  atrOverride: z.number().positive().optional(),          // ATR from TradingView label
+  passRoadOverride: z.number().min(0).max(1000).optional(), // passRoad % from TradingView label
 });
 
 export const UpdateDealSchema = z.object({

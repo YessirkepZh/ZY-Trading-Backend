@@ -28,6 +28,8 @@ export declare const CreateNoteSchema: z.ZodObject<{
     }, z.core.$strip>>;
     inPlay: z.ZodDefault<z.ZodBoolean>;
     screenshot: z.ZodOptional<z.ZodString>;
+    atrOverride: z.ZodOptional<z.ZodNumber>;
+    passRoadOverride: z.ZodOptional<z.ZodNumber>;
 }, z.core.$strip>;
 export declare const UpdateDealSchema: z.ZodObject<{
     id: z.ZodNumber;

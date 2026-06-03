@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.calcAtrZy = calcAtrZy;
+exports.calculateSetup = calculateSetup;
 exports.calculateDeal = calculateDeal;
 const formatters_1 = require("../utils/formatters");
 const ATR_PERIOD = 7;
@@ -70,24 +71,17 @@ function calcAtrZy(bars) {
     const finalRma = calcRMA(filteredTr, ATR_PERIOD);
     return finalRma[finalRma.length - 1] ?? 0;
 }
-function calculateDeal(params) {
-    const { direction, entryRaw, riskPercent, ratio, luftPercent, riskSum, customStop, bars, currentBar } = params;
+/**
+ * Pure calculation: ATR and passRoad are provided directly (e.g. from TradingView Extension).
+ * No market data fetch — just computes TP/SL/Qty/rangeReserve.
+ */
+function calculateSetup(params) {
+    const { atr, passRoad, direction, entryRaw, openPrice, riskPercent, ratio, luftPercent, riskSum, customStop } = params;
     const price = entryRaw;
     const isLong = direction === 'long';
-    const n = bars.length;
-    const atr = calcAtrZy(bars);
-    // rangeReserve: uses open of openBar (Pine Script: open[1] = 1 bar ago from current)
-    const recentOpen = bars[n - 1]?.[1] ?? price;
-    const rangeReserve = isLong
-        ? (0, formatters_1.round2)(recentOpen + 0.8 * atr)
-        : (0, formatters_1.round2)(recentOpen - 0.8 * atr);
-    // passRoad: |close - open| / ATR * 100 — PineScript parity (rangeFromOpen / atrFiltered)
-    // Uses currentBar (today's live candle) if available, otherwise falls back to openBar (last closed)
-    const barForPassRoad = currentBar ?? bars[n - 1];
-    const passRoad = atr > 0 && barForPassRoad
-        ? (0, formatters_1.round2)((Math.abs(barForPassRoad[4] - barForPassRoad[1]) / atr) * 100)
+    const rangeReserve = openPrice != null
+        ? (0, formatters_1.round2)(isLong ? openPrice + 0.8 * atr : openPrice - 0.8 * atr)
         : null;
-    // Default TP/SL/Qty
     const riskDefault = atr * (riskPercent / 100);
     const luft = riskDefault * (luftPercent / 100);
     const entryPrice = (0, formatters_1.round2)(isLong ? price + luft : price - luft);
@@ -97,7 +91,7 @@ function calculateDeal(params) {
     const sum = (0, formatters_1.round2)(quantity * entryPrice);
     const result = {
         atr: (0, formatters_1.round2)(atr),
-        rangeReserve,
+        rangeReserve: rangeReserve ?? (0, formatters_1.round2)(price),
         passRoad,
         entryPrice,
         stopLossDefault,
@@ -105,7 +99,6 @@ function calculateDeal(params) {
         quantity,
         sum,
     };
-    // Custom stop calculations
     if (customStop !== undefined) {
         const riskByStop = Math.abs(price - customStop);
         const luftByStop = riskByStop * (luftPercent / 100);
@@ -125,5 +118,29 @@ function calculateDeal(params) {
         result.sumByStop = sumByStop;
     }
     return result;
+}
+/**
+ * Convenience wrapper: computes ATR and passRoad from bars, then calls calculateSetup.
+ */
+function calculateDeal(params) {
+    const { direction, entryRaw, riskPercent, ratio, luftPercent, riskSum, customStop, bars, currentBar } = params;
+    const n = bars.length;
+    const atr = calcAtrZy(bars);
+    const barForPassRoad = currentBar ?? bars[n - 1];
+    const passRoad = atr > 0 && barForPassRoad
+        ? (0, formatters_1.round2)((Math.abs(barForPassRoad[4] - barForPassRoad[1]) / atr) * 100)
+        : null;
+    return calculateSetup({
+        atr,
+        passRoad,
+        direction,
+        entryRaw,
+        openPrice: bars[n - 1]?.[1],
+        riskPercent,
+        ratio,
+        luftPercent,
+        riskSum,
+        customStop,
+    });
 }
 //# sourceMappingURL=calculationService.js.map

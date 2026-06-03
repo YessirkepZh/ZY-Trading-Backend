@@ -26,6 +26,8 @@ exports.CreateNoteSchema = zod_1.z.object({
         .optional(),
     inPlay: zod_1.z.boolean().default(false),
     screenshot: zod_1.z.string().optional(), // base64 PNG from Extension
+    atrOverride: zod_1.z.number().positive().optional(), // ATR from TradingView label
+    passRoadOverride: zod_1.z.number().min(0).max(1000).optional(), // passRoad % from TradingView label
 });
 exports.UpdateDealSchema = zod_1.z.object({
     id: zod_1.z.number().int().positive(),

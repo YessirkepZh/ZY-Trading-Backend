@@ -50,7 +50,7 @@ async function createNoteHandler(request, reply) {
             return;
         }
         const input = parsed.data;
-        const { ticker, marketType, strategy, direction, entryRaw, customStop, riskPercent, ratio, luftPercent, riskSum, checklist, screenshot, } = input;
+        const { ticker, marketType, strategy, direction, entryRaw, customStop, riskPercent, ratio, luftPercent, riskSum, checklist, screenshot, atrOverride, passRoadOverride, } = input;
         // Deduplication check
         const isDuplicate = await dealService.checkDuplicate(ticker, entryRaw, direction);
         if (isDuplicate) {
@@ -60,20 +60,41 @@ async function createNoteHandler(request, reply) {
             });
             return;
         }
-        // 1. Market data
-        const { bars, currentBar } = await marketDataService.getMarketData(ticker, marketType);
-        // 2. Calculate ATR + TP/SL/Qty
-        const calcResult = calculationService.calculateDeal({
-            direction,
-            entryRaw,
-            riskPercent,
-            ratio,
-            luftPercent,
-            riskSum,
-            customStop,
-            bars,
-            currentBar,
-        });
+        // 1. ATR source: Extension override OR market data API
+        let calcResult;
+        let bars = null;
+        if (atrOverride && atrOverride > 0) {
+            // ATR provided directly from TradingView label — skip market data fetch
+            calcResult = calculationService.calculateSetup({
+                atr: atrOverride,
+                passRoad: passRoadOverride ?? null,
+                direction,
+                entryRaw,
+                riskPercent,
+                ratio,
+                luftPercent,
+                riskSum,
+                customStop,
+            });
+            request.log.info({ ticker, atr: atrOverride, passRoad: passRoadOverride, atrSource: 'extension' }, 'createNote ATR source');
+        }
+        else {
+            // Fallback — fetch candles and compute ATR
+            const marketData = await marketDataService.getMarketData(ticker, marketType);
+            bars = marketData.bars;
+            calcResult = calculationService.calculateDeal({
+                direction,
+                entryRaw,
+                riskPercent,
+                ratio,
+                luftPercent,
+                riskSum,
+                customStop,
+                bars: marketData.bars,
+                currentBar: marketData.currentBar,
+            });
+            request.log.info({ ticker, atr: calcResult.atr, passRoad: calcResult.passRoad, atrSource: 'api' }, 'createNote ATR source');
+        }
         // 3. Save deal to DB
         const payload = {
             ticker, marketType, strategy, direction, entryRaw,
@@ -92,7 +113,7 @@ async function createNoteHandler(request, reply) {
             }
         }
         // 4. Claude check
-        const ohlcvSummary = marketDataService.formatOhlcvSummary(bars);
+        const ohlcvSummary = bars ? marketDataService.formatOhlcvSummary(bars) : '';
         const claudeCheck = await claudeService.checkSetup({
             ticker,
             marketType,
