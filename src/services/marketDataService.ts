@@ -7,35 +7,52 @@ import type { MarketData, OhlcvBar } from '../types/market';
 
 const BARS_LIMIT = 65;
 
-// ── Binance (crypto) ─────────────────────────────────────────────────────────
+// ── CryptoCompare (crypto) ───────────────────────────────────────────────────
 
-async function fetchBinanceOhlcv(ticker: string): Promise<OhlcvBar[]> {
+function parseCryptoTicker(ticker: string): { fsym: string; tsym: string } {
+  const quoteAssets = ['USDT', 'BUSD', 'USD', 'BTC', 'ETH', 'BNB'];
+  for (const quote of quoteAssets) {
+    if (ticker.toUpperCase().endsWith(quote)) {
+      return {
+        fsym: ticker.slice(0, -quote.length).toUpperCase(),
+        tsym: quote,
+      };
+    }
+  }
+  return { fsym: ticker.toUpperCase(), tsym: 'USD' };
+}
+
+interface CryptoCompareBar {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volumefrom: number;
+}
+
+async function fetchCryptoCompareOhlcv(ticker: string): Promise<OhlcvBar[]> {
   return retry(async () => {
-    const response = await axios.get('https://api.binance.com/api/v3/klines', {
+    const { fsym, tsym } = parseCryptoTicker(ticker);
+    const response = await axios.get<{
+      Data: { Data: CryptoCompareBar[] };
+    }>('https://min-api.cryptocompare.com/data/v2/histoday', {
       params: {
-        symbol: ticker,
-        interval: '1d',
-        limit: 65,
+        fsym,
+        tsym,
+        limit: BARS_LIMIT,
+        api_key: config.cryptoCompare.apiKey,
       },
       timeout: 10000,
     });
 
-    // Binance returns [timestamp, open, high, low, close, volume, ...]
-    // Keep all bars — last one is the current (potentially unclosed) day candle
-    const bars: OhlcvBar[] = (response.data as unknown[]).map((b) => {
-      const r = b as unknown[];
-      return [
-        Number(r[0]),
-        parseFloat(r[1] as string),
-        parseFloat(r[2] as string),
-        parseFloat(r[3] as string),
-        parseFloat(r[4] as string),
-        parseFloat(r[5] as string),
-      ];
-    });
+    // CryptoCompare returns oldest-first; last bar is the current (unclosed) day — remove it
+    const bars: OhlcvBar[] = response.data.Data.Data
+      .slice(0, -1)
+      .map((r) => [r.time * 1000, r.open, r.high, r.low, r.close, r.volumefrom]);
 
     if (bars.length < 10) {
-      throw new Error(`Not enough bars for ${ticker}: ${bars.length}`);
+      throw new Error(`Not enough bars for ${ticker} (${fsym}/${tsym}): ${bars.length}`);
     }
 
     return bars;
@@ -110,7 +127,7 @@ export async function getMarketData(
 ): Promise<MarketData> {
   switch (marketType) {
     case 'crypto': {
-      const allBars = await fetchBinanceOhlcv(symbol);
+      const allBars = await fetchCryptoCompareOhlcv(symbol);
       // Last bar = current (potentially unclosed) day candle → used for passRoad
       const currentBar = allBars[allBars.length - 1];
       // Closed bars only (exclude current day) → used for ATR + entry calculations

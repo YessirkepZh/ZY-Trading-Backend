@@ -22,6 +22,9 @@ exports.config = {
     polygon: {
         apiKey: required('POLYGON_API_KEY'),
     },
+    cryptoCompare: {
+        apiKey: required('CRYPTOCOMPARE_API_KEY'),
+    },
     anthropic: {
         apiKey: required('ANTHROPIC_API_KEY'),
         model: 'claude-opus-4-5',

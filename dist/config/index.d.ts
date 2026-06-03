@@ -8,6 +8,9 @@ export declare const config: {
     readonly polygon: {
         readonly apiKey: string;
     };
+    readonly cryptoCompare: {
+        readonly apiKey: string;
+    };
     readonly anthropic: {
         readonly apiKey: string;
         readonly model: "claude-opus-4-5";

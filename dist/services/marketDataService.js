@@ -10,32 +10,37 @@ const sync_1 = require("csv-parse/sync");
 const config_1 = require("../config");
 const retry_1 = require("../utils/retry");
 const BARS_LIMIT = 65;
-// ── Binance (crypto) ─────────────────────────────────────────────────────────
-async function fetchBinanceOhlcv(ticker) {
+// ── CryptoCompare (crypto) ───────────────────────────────────────────────────
+function parseCryptoTicker(ticker) {
+    const quoteAssets = ['USDT', 'BUSD', 'USD', 'BTC', 'ETH', 'BNB'];
+    for (const quote of quoteAssets) {
+        if (ticker.toUpperCase().endsWith(quote)) {
+            return {
+                fsym: ticker.slice(0, -quote.length).toUpperCase(),
+                tsym: quote,
+            };
+        }
+    }
+    return { fsym: ticker.toUpperCase(), tsym: 'USD' };
+}
+async function fetchCryptoCompareOhlcv(ticker) {
     return (0, retry_1.retry)(async () => {
-        const response = await axios_1.default.get('https://api.binance.com/api/v3/klines', {
+        const { fsym, tsym } = parseCryptoTicker(ticker);
+        const response = await axios_1.default.get('https://min-api.cryptocompare.com/data/v2/histoday', {
             params: {
-                symbol: ticker,
-                interval: '1d',
-                limit: 65,
+                fsym,
+                tsym,
+                limit: BARS_LIMIT,
+                api_key: config_1.config.cryptoCompare.apiKey,
             },
             timeout: 10000,
         });
-        // Binance returns [timestamp, open, high, low, close, volume, ...]
-        // Keep all bars — last one is the current (potentially unclosed) day candle
-        const bars = response.data.map((b) => {
-            const r = b;
-            return [
-                Number(r[0]),
-                parseFloat(r[1]),
-                parseFloat(r[2]),
-                parseFloat(r[3]),
-                parseFloat(r[4]),
-                parseFloat(r[5]),
-            ];
-        });
+        // CryptoCompare returns oldest-first; last bar is the current (unclosed) day — remove it
+        const bars = response.data.Data.Data
+            .slice(0, -1)
+            .map((r) => [r.time * 1000, r.open, r.high, r.low, r.close, r.volumefrom]);
         if (bars.length < 10) {
-            throw new Error(`Not enough bars for ${ticker}: ${bars.length}`);
+            throw new Error(`Not enough bars for ${ticker} (${fsym}/${tsym}): ${bars.length}`);
         }
         return bars;
     }, { attempts: 3, delayMs: 1000 });
@@ -89,7 +94,7 @@ async function fetchStooq(symbol) {
 async function getMarketData(symbol, marketType) {
     switch (marketType) {
         case 'crypto': {
-            const allBars = await fetchBinanceOhlcv(symbol);
+            const allBars = await fetchCryptoCompareOhlcv(symbol);
             // Last bar = current (potentially unclosed) day candle → used for passRoad
             const currentBar = allBars[allBars.length - 1];
             // Closed bars only (exclude current day) → used for ATR + entry calculations
