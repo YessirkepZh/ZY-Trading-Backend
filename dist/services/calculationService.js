@@ -76,8 +76,8 @@ function calculateDeal(params) {
     const isLong = direction === 'long';
     const n = bars.length;
     const atr = calcAtrZy(bars);
-    // rangeReserve: uses open of the most recent bar (Pine Script [1] = 1 bar ago from current)
-    const recentOpen = bars[n - 2]?.[1] ?? bars[n - 1]?.[1] ?? price;
+    // rangeReserve: uses open of openBar (Pine Script: open[1] = 1 bar ago from current)
+    const recentOpen = bars[n - 1]?.[1] ?? price;
     const rangeReserve = isLong
         ? (0, formatters_1.round2)(recentOpen + 0.8 * atr)
         : (0, formatters_1.round2)(recentOpen - 0.8 * atr);
