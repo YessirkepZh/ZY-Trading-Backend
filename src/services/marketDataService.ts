@@ -9,30 +9,39 @@ const BARS_LIMIT = 65;
 
 // ── Binance (crypto) ─────────────────────────────────────────────────────────
 
-async function fetchBinance(symbol: string): Promise<MarketData> {
+async function fetchBinanceOhlcv(ticker: string): Promise<OhlcvBar[]> {
   return retry(async () => {
-    const response = await axios.get<unknown[][]>(
-      'https://api.binance.com/api/v3/klines',
-      {
-        params: { symbol, interval: '1d', limit: BARS_LIMIT },
-        timeout: 10000,
+    const response = await axios.get('https://api.binance.com/api/v3/klines', {
+      params: {
+        symbol: ticker,
+        interval: '1d',
+        limit: 65,
       },
-    );
+      timeout: 10000,
+    });
 
-    // Binance returns oldest-first; last element is the unclosed candle — remove it
-    const bars: OhlcvBar[] = response.data.slice(0, -1).map((r) => [
-      Number(r[0]),
-      Number(r[1]),
-      Number(r[2]),
-      Number(r[3]),
-      Number(r[4]),
-      Number(r[5]),
-    ]);
+    // Binance returns [timestamp, open, high, low, close, volume, ...]
+    // Remove the last unclosed candle
+    const bars: OhlcvBar[] = (response.data as unknown[])
+      .slice(0, -1)
+      .map((b) => {
+        const r = b as unknown[];
+        return [
+          Number(r[0]),
+          parseFloat(r[1] as string),
+          parseFloat(r[2] as string),
+          parseFloat(r[3] as string),
+          parseFloat(r[4] as string),
+          parseFloat(r[5] as string),
+        ];
+      });
 
-    const openBar = bars[bars.length - 2];
-    if (!openBar) throw new Error('No bars returned from Binance');
-    return { bars, openBar };
-  });
+    if (bars.length < 10) {
+      throw new Error(`Not enough bars for ${ticker}: ${bars.length}`);
+    }
+
+    return bars;
+  }, { attempts: 3, delayMs: 1000 });
 }
 
 // ── Polygon.io (stocks) ──────────────────────────────────────────────────────
@@ -102,8 +111,12 @@ export async function getMarketData(
   marketType: MarketType,
 ): Promise<MarketData> {
   switch (marketType) {
-    case 'crypto':
-      return fetchBinance(symbol);
+    case 'crypto': {
+      const bars = await fetchBinanceOhlcv(symbol);
+      const openBar = bars[bars.length - 2];
+      if (!openBar) throw new Error(`No openBar for ${symbol}`);
+      return { bars, openBar };
+    }
     case 'stocks':
       return fetchPolygon(symbol);
     case 'forex':
