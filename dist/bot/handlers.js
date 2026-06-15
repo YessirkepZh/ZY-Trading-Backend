@@ -46,6 +46,7 @@ const dealService = __importStar(require("../services/dealService"));
 const marketDataService = __importStar(require("../services/marketDataService"));
 const calculationService = __importStar(require("../services/calculationService"));
 const claudeService = __importStar(require("../services/claudeService"));
+const claudeDisplay_1 = require("../utils/claudeDisplay");
 const keyboards_1 = require("./keyboards");
 let bot;
 function isAllowed(userId) {
@@ -120,8 +121,9 @@ function initBot() {
                 `TP: ${deal.calcResult.takeProfitDefault} | SL: ${deal.calcResult.stopLossDefault}`,
             ];
             if (deal.claudeCheckResult) {
-                lines.push(`🤖 Claude: ${deal.claudeCheckResult.recommendation} (${deal.claudeCheckResult.confidence}%)`);
-                lines.push(`_${deal.claudeCheckResult.reasoning}_`);
+                const rec = (0, claudeDisplay_1.formatClaudeRecommendationRu)(deal.claudeCheckResult.recommendation);
+                lines.push(`🤖 Claude: ${rec} (${deal.claudeCheckResult.confidence}%)`);
+                lines.push(`_${(0, claudeDisplay_1.formatClaudeReasoningRu)(deal.claudeCheckResult)}_`);
             }
             await bot.sendMessage(msg.chat.id, lines.join('\n'), { parse_mode: 'Markdown' });
         }

@@ -6,6 +6,7 @@ exports.sendScenario = sendScenario;
 exports.sendText = sendText;
 exports.sendAlert = sendAlert;
 const checklists_1 = require("../checklists");
+const claudeDisplay_1 = require("../utils/claudeDisplay");
 let botInstance = null;
 let chatIdInstance = null;
 function initTelegramService(bot, chatId) {
@@ -67,10 +68,16 @@ function formatScenarioMessage(deal, calcResult, claudeCheck, checklist) {
         if (calcResult.takeProfitByStop3 !== undefined) {
             lines.push(`• *TP 5к1:* ${calcResult.takeProfitByStop3}`);
         }
+        if (calcResult.quantityByStop !== undefined) {
+            lines.push(`• *Количество:* ${calcResult.quantityByStop}`);
+        }
+        if (calcResult.sumByStop !== undefined) {
+            lines.push(`• *Сумма:* ${calcResult.sumByStop}`);
+        }
     }
     lines.push('');
-    lines.push(`🤖 *Claude: ${claudeCheck.recommendation}* (${claudeCheck.confidence}%)`);
-    lines.push(`_${claudeCheck.reasoning}_`);
+    lines.push(`🤖 *Claude: ${(0, claudeDisplay_1.formatClaudeRecommendationRu)(claudeCheck.recommendation)}* (${claudeCheck.confidence}%)`);
+    lines.push(`_${(0, claudeDisplay_1.formatClaudeReasoningRu)(claudeCheck)}_`);
     if (checklist && strategy) {
         const plusLine = formatChecklistLine(strategy, checklist.plus, '✅', 'ПРЕДПОСЫЛКИ');
         const minusLine = formatChecklistLine(strategy, checklist.minus, '❌', 'МИНУСЫ');

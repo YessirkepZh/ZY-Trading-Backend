@@ -5,6 +5,10 @@ import * as dealService from '../services/dealService';
 import * as marketDataService from '../services/marketDataService';
 import * as calculationService from '../services/calculationService';
 import * as claudeService from '../services/claudeService';
+import {
+  formatClaudeReasoningRu,
+  formatClaudeRecommendationRu,
+} from '../utils/claudeDisplay';
 import { getDealActionKeyboard, getMarketsKeyboard } from './keyboards';
 
 let bot: TelegramBot;
@@ -87,8 +91,9 @@ export function initBot(): void {
         `TP: ${deal.calcResult.takeProfitDefault} | SL: ${deal.calcResult.stopLossDefault}`,
       ];
       if (deal.claudeCheckResult) {
-        lines.push(`🤖 Claude: ${deal.claudeCheckResult.recommendation} (${deal.claudeCheckResult.confidence}%)`);
-        lines.push(`_${deal.claudeCheckResult.reasoning}_`);
+        const rec = formatClaudeRecommendationRu(deal.claudeCheckResult.recommendation);
+        lines.push(`🤖 Claude: ${rec} (${deal.claudeCheckResult.confidence}%)`);
+        lines.push(`_${formatClaudeReasoningRu(deal.claudeCheckResult)}_`);
       }
       await bot.sendMessage(msg.chat.id, lines.join('\n'), { parse_mode: 'Markdown' });
     } catch (err) {

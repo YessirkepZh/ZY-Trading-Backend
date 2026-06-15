@@ -9,37 +9,42 @@ import type { AnalysisMetrics } from '../types/analysis';
 
 const client = new Anthropic({ apiKey: config.anthropic.apiKey });
 
-const CHECK_SETUP_SYSTEM = `Ты — ассистент трейдера. Анализируешь торговый сетап по правилам стратегии.
-Стратегии: Пробой (breakout), Ложный Пробой (false breakout), Отбой (bounce).
+const CHECK_SETUP_SYSTEM = `You are a trading assistant. Analyze the setup against strategy rules.
+Strategies: Breakout, False Breakout, Bounce.
 
-Правила стратегии Пробой:
-- Вход актуален если passRoad < 60% ATR
-- Поджатие к уровню на малых барах = плюс
-- Запил на уровне = минус
-- Биткоин в другую сторону = предупреждение
+Breakout rules:
+- Entry is valid if passRoad < 60% ATR
+- Squeeze to the level on small bars = plus
+- Sawing (chop) at the level = minus
+- Bitcoin moving the opposite way = warning
 
-Правила стратегии Ложный Пробой:
-- Длинное безоткатное движение к уровню = ключевой признак
-- V-подход = плюс
-- Нет накопления = минус
+False Breakout rules:
+- Long uninterrupted move to the level = key signal
+- V-approach = plus
+- No accumulation = minus
 
-Отвечай строго в JSON формате:
+Respond strictly in JSON:
 {
   "recommendation": "take" | "skip" | "wait",
   "confidence": 0-100,
-  "reasoning": "краткое объяснение",
-  "warnings": ["предупреждение 1", "предупреждение 2"]
+  "reasoning": "brief explanation in English",
+  "reasoning_ru": "краткое объяснение на русском",
+  "warnings": ["warning in English"],
+  "warnings_ru": ["предупреждение на русском"]
 }`;
 
-const ANALYZE_DEAL_SYSTEM = `Ты — ментор трейдера. Анализируешь закрытую сделку и даёшь обратную связь.
-Смотри на: качество входа, соблюдение правил чек-листа, результат.
-Найди ошибки и конкретные улучшения.
+const ANALYZE_DEAL_SYSTEM = `You are a trading mentor. Analyze a closed trade and give feedback.
+Focus on: entry quality, checklist compliance, outcome.
+Find mistakes and concrete improvements.
 
-Отвечай строго в JSON:
+Respond strictly in JSON:
 {
-  "summary": "краткое резюме сделки",
-  "mistakes": ["ошибка 1", "ошибка 2"],
-  "improvements": ["улучшение 1", "улучшение 2"]
+  "summary": "brief trade summary in English",
+  "summary_ru": "краткое резюме на русском",
+  "mistakes": ["mistake in English"],
+  "mistakes_ru": ["ошибка на русском"],
+  "improvements": ["improvement in English"],
+  "improvements_ru": ["улучшение на русском"]
 }`;
 
 async function callClaude(system: string, userMessage: string): Promise<string> {
@@ -91,6 +96,19 @@ function extractJson(text: string): unknown {
   return JSON.parse(match[0]);
 }
 
+function strategyToEnglish(strategy: Strategy): string {
+  const map: Record<Strategy, string> = {
+    'Пробой': 'Breakout',
+    'Ложный Пробой': 'False Breakout',
+    'Отбой': 'Bounce',
+  };
+  return map[strategy];
+}
+
+function formatChecklistKeys(keys: string[]): string {
+  return keys.length > 0 ? keys.join(', ') : 'none';
+}
+
 export async function checkSetup(params: {
   ticker: string;
   marketType: MarketType;
@@ -104,22 +122,22 @@ export async function checkSetup(params: {
   const { ticker, marketType, strategy, direction, calcResult, checklist, ohlcvSummary, screenshotUrl } = params;
 
   const userMessage = `
-Тикер: ${ticker} (${marketType})
-Стратегия: ${strategy}
-Направление: ${direction}
+Ticker: ${ticker} (${marketType})
+Strategy: ${strategyToEnglish(strategy)}
+Direction: ${direction}
 ATR: ${calcResult.atr}
-passRoad: ${calcResult.passRoad ?? 'н/д'}%
-rangeReserve: ${calcResult.rangeReserve ?? 'н/д'}
+passRoad: ${calcResult.passRoad ?? 'n/a'}%
+rangeReserve: ${calcResult.rangeReserve ?? 'n/a'}
 entryPrice: ${calcResult.entryPrice}
 SL: ${calcResult.stopLossDefault}
 TP: ${calcResult.takeProfitDefault}
 
-Чек-лист:
-ПРЕДПОСЫЛКИ: ${checklist.plus.join(', ') || 'нет'}
-МИНУСЫ: ${checklist.minus.join(', ') || 'нет'}
-ОЖИДАЮ: ${checklist.wait.join(', ') || 'нет'}
+Checklist (keys):
+PLUS: ${formatChecklistKeys(checklist.plus)}
+MINUS: ${formatChecklistKeys(checklist.minus)}
+WAIT: ${formatChecklistKeys(checklist.wait)}
 
-Последние 10 баров OHLCV:
+Last 10 OHLCV bars:
 ${ohlcvSummary}
 `.trim();
 
@@ -128,14 +146,18 @@ ${ohlcvSummary}
     recommendation: 'take' | 'skip' | 'wait';
     confidence: number;
     reasoning: string;
+    reasoning_ru?: string;
     warnings: string[];
+    warnings_ru?: string[];
   };
 
   return {
     recommendation: parsed.recommendation,
     confidence: parsed.confidence,
     reasoning: parsed.reasoning,
+    reasoningRu: parsed.reasoning_ru,
     warnings: parsed.warnings ?? [],
+    warningsRu: parsed.warnings_ru,
     checkedAt: new Date(),
   };
 }

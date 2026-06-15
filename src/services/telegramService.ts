@@ -3,6 +3,10 @@ import { getLabelByKey } from '../checklists';
 import type { Deal } from '../types/deal';
 import type { CalculationResult, ClaudeCheckResult } from '../types/calculation';
 import type { ChecklistSnapshot, Strategy } from '../types/deal';
+import {
+  formatClaudeReasoningRu,
+  formatClaudeRecommendationRu,
+} from '../utils/claudeDisplay';
 
 let botInstance: TelegramBot | null = null;
 let chatIdInstance: number | null = null;
@@ -83,11 +87,19 @@ export function formatScenarioMessage(
     if (calcResult.takeProfitByStop3 !== undefined) {
       lines.push(`• *TP 5к1:* ${calcResult.takeProfitByStop3}`);
     }
+    if (calcResult.quantityByStop !== undefined) {
+      lines.push(`• *Количество:* ${calcResult.quantityByStop}`);
+    }
+    if (calcResult.sumByStop !== undefined) {
+      lines.push(`• *Сумма:* ${calcResult.sumByStop}`);
+    }
   }
 
   lines.push('');
-  lines.push(`🤖 *Claude: ${claudeCheck.recommendation}* (${claudeCheck.confidence}%)`);
-  lines.push(`_${claudeCheck.reasoning}_`);
+  lines.push(
+    `🤖 *Claude: ${formatClaudeRecommendationRu(claudeCheck.recommendation)}* (${claudeCheck.confidence}%)`,
+  );
+  lines.push(`_${formatClaudeReasoningRu(claudeCheck)}_`);
 
   if (checklist && strategy) {
     const plusLine = formatChecklistLine(strategy, checklist.plus, '✅', 'ПРЕДПОСЫЛКИ');
