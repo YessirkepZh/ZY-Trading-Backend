@@ -8,6 +8,8 @@ const migrations = [
   '003_add_screenshots.sql',
   '004_add_analysis_reports.sql',
   '005_add_entered_at.sql',
+  '006_create_checklist_items.sql',
+  '007_add_checklist_groups.sql',
 ];
 
 async function migrate(): Promise<void> {

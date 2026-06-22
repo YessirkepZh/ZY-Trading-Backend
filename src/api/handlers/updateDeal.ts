@@ -33,6 +33,15 @@ export async function updateDealHandler(
     }
     await dealService.closeDeal(id, closePrice, dealResult);
 
+    // Record checklist stats for analytics
+    if (deal.checklistSnapshot) {
+      try {
+        await dealService.saveChecklistStats(id, deal.strategy, deal.checklistSnapshot, dealResult);
+      } catch (err) {
+        console.error('saveChecklistStats failed (non-fatal)', err);
+      }
+    }
+
     if (screenshot) {
       try {
         const url = await storageService.uploadScreenshot(screenshot, id, 'close');

@@ -1,7 +1,7 @@
 import type { Direction } from '../types/deal';
 import type { CalculationResult } from '../types/calculation';
 import type { OhlcvBar } from '../types/market';
-import { round2 } from '../utils/formatters';
+import { round2, roundSmart } from '../utils/formatters';
 
 const ATR_PERIOD = 7;
 const SPIKE_MULT = 3.0;
@@ -131,22 +131,22 @@ export function calculateSetup(params: SetupParams): CalculationResult {
   const atrPercent = entryRaw > 0 ? round2((atr / entryRaw) * 100) : null;
 
   const rangeReserve = openPrice != null
-    ? round2(isLong ? openPrice + 0.8 * atr : openPrice - 0.8 * atr)
+    ? roundSmart(isLong ? openPrice + 0.8 * atr : openPrice - 0.8 * atr)
     : null;
 
   const riskDefault = atr * (riskPercent / 100);
   const luft = riskDefault * (luftPercent / 100);
 
-  const entryPrice = round2(isLong ? price + luft : price - luft);
-  const stopLossDefault = round2(isLong ? entryPrice - riskDefault : entryPrice + riskDefault);
-  const takeProfitDefault = round2(isLong ? entryPrice + ratio * riskDefault : entryPrice - ratio * riskDefault);
+  const entryPrice = roundSmart(isLong ? price + luft : price - luft);
+  const stopLossDefault = roundSmart(isLong ? entryPrice - riskDefault : entryPrice + riskDefault);
+  const takeProfitDefault = roundSmart(isLong ? entryPrice + ratio * riskDefault : entryPrice - ratio * riskDefault);
   const quantity = round2(riskSum / riskDefault);
   const sum = round2(quantity * entryPrice);
 
   const result: CalculationResult = {
-    atr: round2(atr),
+    atr: roundSmart(atr),
     atrPercent,
-    rangeReserve: rangeReserve ?? round2(price),
+    rangeReserve: rangeReserve ?? roundSmart(price),
     passRoad,
     entryPrice,
     stopLossDefault,
@@ -159,11 +159,11 @@ export function calculateSetup(params: SetupParams): CalculationResult {
     const riskByStop = Math.abs(price - customStop);
     const luftByStop = riskByStop * (luftPercent / 100);
 
-    const entryPriceByStop = round2(isLong ? price + luftByStop : price - luftByStop);
-    const stopLossByStop = round2(isLong ? entryPriceByStop - riskByStop : entryPriceByStop + riskByStop);
-    const takeProfitByStop = round2(isLong ? entryPriceByStop + ratio * riskByStop : entryPriceByStop - ratio * riskByStop);
-    const takeProfitByStop2 = round2(isLong ? entryPriceByStop + (ratio + 1) * riskByStop : entryPriceByStop - (ratio + 1) * riskByStop);
-    const takeProfitByStop3 = round2(isLong ? entryPriceByStop + (ratio + 2) * riskByStop : entryPriceByStop - (ratio + 2) * riskByStop);
+    const entryPriceByStop = roundSmart(isLong ? price + luftByStop : price - luftByStop);
+    const stopLossByStop = roundSmart(isLong ? entryPriceByStop - riskByStop : entryPriceByStop + riskByStop);
+    const takeProfitByStop = roundSmart(isLong ? entryPriceByStop + ratio * riskByStop : entryPriceByStop - ratio * riskByStop);
+    const takeProfitByStop2 = roundSmart(isLong ? entryPriceByStop + (ratio + 1) * riskByStop : entryPriceByStop - (ratio + 1) * riskByStop);
+    const takeProfitByStop3 = roundSmart(isLong ? entryPriceByStop + (ratio + 2) * riskByStop : entryPriceByStop - (ratio + 2) * riskByStop);
     const quantityByStop = round2(riskSum / riskByStop);
     const sumByStop = round2(quantityByStop * entryPriceByStop);
 

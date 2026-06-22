@@ -7,6 +7,17 @@ export function round4(value: number): number {
 }
 
 /**
+ * Rounds to 6 significant figures.
+ * Works correctly for any price magnitude: large (45000 → 45000),
+ * medium (1.2345 → 1.23450), small (0.00256 → 0.00256000).
+ * Use for ATR and prices in crypto/forex where decimals matter.
+ */
+export function roundSmart(value: number): number {
+  if (value === 0) return 0;
+  return parseFloat(value.toPrecision(6));
+}
+
+/**
  * Rounds all numeric values in an object to 2 decimal places.
  * Returns a new object — does not mutate the original.
  */

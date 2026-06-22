@@ -1,7 +1,5 @@
 import type { Strategy } from '../types/deal';
-import { proboyChecklist } from './proboyChecklist';
-import { falseProboyChecklist } from './falseProboyChecklist';
-import { otboyChecklist } from './otboyChecklist';
+import * as checklistItemService from '../services/checklistItemService';
 
 export type ChecklistItemType = 'plus' | 'minus' | 'wait';
 
@@ -16,22 +14,10 @@ export interface Checklist {
   ОЖИДАЮ: ChecklistItem[];
 }
 
-const checklistMap: Record<Strategy, Checklist> = {
-  'Пробой': proboyChecklist,
-  'Ложный Пробой': falseProboyChecklist,
-  'Отбой': otboyChecklist,
-};
-
 export function getChecklistForStrategy(strategy: Strategy): Checklist {
-  return checklistMap[strategy];
+  return checklistItemService.getChecklistForStrategy(strategy);
 }
 
 export function getLabelByKey(strategy: Strategy, key: string): string {
-  const checklist = checklistMap[strategy];
-  const allItems = [
-    ...checklist.ПРЕДПОСЫЛКИ,
-    ...checklist.МИНУСЫ,
-    ...checklist.ОЖИДАЮ,
-  ];
-  return allItems.find((item) => item.key === key)?.label ?? key;
+  return checklistItemService.getLabelByKey(strategy, key);
 }

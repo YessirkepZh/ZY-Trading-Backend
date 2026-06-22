@@ -4,6 +4,7 @@ import { config } from './config';
 import { registerRoutes } from './api/routes';
 import { initBot } from './bot/handlers';
 import { pool } from './db/pool';
+import { initChecklistCache } from './services/checklistItemService';
 
 const fastify = Fastify({
   bodyLimit: 10 * 1024 * 1024, // 10MB for base64 screenshots
@@ -16,6 +17,10 @@ async function main(): Promise<void> {
   // Verify DB connection
   await pool.query('SELECT 1');
   fastify.log.info('DB connected');
+
+  // Load checklist items into memory
+  await initChecklistCache();
+  fastify.log.info('Checklist cache loaded');
 
   await fastify.register(cors, {
     origin: config.corsOrigins,

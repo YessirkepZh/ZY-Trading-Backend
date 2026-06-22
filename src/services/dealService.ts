@@ -114,6 +114,35 @@ export async function setScreenshot(
   );
 }
 
+export async function saveChecklistStats(
+  dealId: number,
+  strategy: string,
+  snapshot: { plus: string[]; minus: string[]; wait: string[] },
+  dealResult: 'win' | 'loss' | 'breakeven',
+): Promise<void> {
+  const entries: Array<[string, string]> = [
+    ...snapshot.plus.map((k): [string, string] => [k, 'plus']),
+    ...snapshot.minus.map((k): [string, string] => [k, 'minus']),
+    ...snapshot.wait.map((k): [string, string] => [k, 'wait']),
+  ];
+
+  if (entries.length === 0) return;
+
+  const values: unknown[] = [];
+  const rows = entries.map(([key, type]) => {
+    const base = values.length;
+    values.push(dealId, strategy, key, type, dealResult);
+    return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5})`;
+  });
+
+  await pool.query(
+    `INSERT INTO checklist_stats (deal_id, strategy, item_key, item_type, deal_result)
+     VALUES ${rows.join(', ')}
+     ON CONFLICT DO NOTHING`,
+    values,
+  );
+}
+
 export async function setClaudeStats(id: number, result: ClaudeStatsResult): Promise<void> {
   await pool.query(
     `UPDATE deals SET claude_stats_result = $2, updated_at = NOW() WHERE id = $1`,

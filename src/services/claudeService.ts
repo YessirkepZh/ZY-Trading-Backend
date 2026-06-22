@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { config } from '../config';
 import { retry } from '../utils/retry';
+import { getLabelByKey } from '../services/checklistItemService';
 import type { MarketType, Direction, Strategy } from '../types/deal';
 import type { CalculationResult, ClaudeCheckResult, ClaudeStatsResult } from '../types/calculation';
 import type { ChecklistSnapshot } from '../types/deal';
@@ -9,19 +10,45 @@ import type { AnalysisMetrics } from '../types/analysis';
 
 const client = new Anthropic({ apiKey: config.anthropic.apiKey });
 
-const CHECK_SETUP_SYSTEM = `You are a trading assistant. Analyze the setup against strategy rules.
-Strategies: Breakout, False Breakout, Bounce.
+const MARKET_CONTEXT: Record<MarketType, string> = {
+  crypto:
+    '- Bitcoin (BTC) moving the opposite direction = warning for altcoins',
+  stocks:
+    '- SPY / QQQ moving the opposite direction = warning (broad market correlation)',
+  forex:
+    '- DXY (US Dollar Index) moving opposite to USD pairs = warning',
+};
+
+function buildCheckSetupSystem(marketType: MarketType): string {
+  return `You are a trading assistant. Analyze the setup against strategy rules.
+Strategies: Breakout (Пробой), False Breakout (Ложный Пробой), Bounce (Отбой).
+
+Key metric — passRoad:
+- passRoad = how much % of the daily ATR the current candle body has already traveled from the day open price.
+- passRoad < 40%: excellent — plenty of range left, strong setup signal.
+- passRoad 40–60%: acceptable — some range remains.
+- passRoad > 60%: warning — most of the day's range is consumed, reward/risk is reduced.
+- passRoad > 80%: skip — almost no room left for the trade to develop.
 
 Breakout rules:
-- Entry is valid if passRoad < 60% ATR
-- Squeeze to the level on small bars = plus
-- Sawing (chop) at the level = minus
-- Bitcoin moving the opposite way = warning
+- Squeeze to the level on small bars = strong plus
+- Volume accumulation near the level = plus
+- Sawing / chop at the level = minus
+${MARKET_CONTEXT[marketType]}
 
 False Breakout rules:
-- Long uninterrupted move to the level = key signal
+- Long uninterrupted move to the level (no pullbacks) = key signal
 - V-approach = plus
-- No accumulation = minus
+- No accumulation before breakout = minus
+
+Bounce rules:
+- Clean level without prior breaks = plus
+- Divergence on indicator = plus
+- Prior break of the level = minus
+
+The checklist items provided are already evaluated by the trader. Weight them heavily.
+If the checklist shows strong PLUS signals and passRoad < 60%, lean toward "take".
+Only suggest "skip" if there are clear structural problems (passRoad > 80%, multiple MINUS items, no PLUS items).
 
 Respond strictly in JSON:
 {
@@ -32,6 +59,7 @@ Respond strictly in JSON:
   "warnings": ["warning in English"],
   "warnings_ru": ["предупреждение на русском"]
 }`;
+}
 
 const ANALYZE_DEAL_SYSTEM = `You are a trading mentor. Analyze a closed trade and give feedback.
 Focus on: entry quality, checklist compliance, outcome.
@@ -105,8 +133,9 @@ function strategyToEnglish(strategy: Strategy): string {
   return map[strategy];
 }
 
-function formatChecklistKeys(keys: string[]): string {
-  return keys.length > 0 ? keys.join(', ') : 'none';
+function formatChecklistLabels(strategy: Strategy, keys: string[]): string {
+  if (keys.length === 0) return 'none';
+  return keys.map((k) => getLabelByKey(strategy, k)).join('; ');
 }
 
 export async function checkSetup(params: {
@@ -132,16 +161,16 @@ entryPrice: ${calcResult.entryPrice}
 SL: ${calcResult.stopLossDefault}
 TP: ${calcResult.takeProfitDefault}
 
-Checklist (keys):
-PLUS: ${formatChecklistKeys(checklist.plus)}
-MINUS: ${formatChecklistKeys(checklist.minus)}
-WAIT: ${formatChecklistKeys(checklist.wait)}
+Checklist (trader evaluation):
+PLUS: ${formatChecklistLabels(strategy, checklist.plus)}
+MINUS: ${formatChecklistLabels(strategy, checklist.minus)}
+WAIT: ${formatChecklistLabels(strategy, checklist.wait)}
 
 Last 10 OHLCV bars:
 ${ohlcvSummary}
 `.trim();
 
-  const text = await callClaudeWithImage(CHECK_SETUP_SYSTEM, userMessage, screenshotUrl);
+  const text = await callClaudeWithImage(buildCheckSetupSystem(marketType), userMessage, screenshotUrl);
   const parsed = extractJson(text) as {
     recommendation: 'take' | 'skip' | 'wait';
     confidence: number;
