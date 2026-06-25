@@ -17,5 +17,7 @@ export async function getDealByIdHandler(
     return;
   }
 
-  reply.send({ success: true, deal });
+  const comments = await dealService.getDealComments(id);
+
+  reply.send({ success: true, deal, comments });
 }

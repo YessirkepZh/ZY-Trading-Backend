@@ -3,6 +3,7 @@ import { createNoteHandler } from './handlers/createNote';
 import { updateDealHandler } from './handlers/updateDeal';
 import { getDealsHandler } from './handlers/getDeals';
 import { getDealByIdHandler } from './handlers/getDealById';
+import { addDealCommentHandler } from './handlers/addDealComment';
 import { getDashboardHandler } from './handlers/getDashboard';
 import { sendAlertHandler } from './handlers/sendAlert';
 import { uploadScreenshotHandler } from './handlers/uploadScreenshot';
@@ -43,6 +44,7 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.post('/api/updateDeal', updateDealHandler);
   fastify.get('/api/deals', getDealsHandler);
   fastify.get<{ Params: { id: string } }>('/api/deals/:id', getDealByIdHandler);
+  fastify.post<{ Params: { id: string } }>('/api/deals/:id/comments', addDealCommentHandler);
   fastify.get('/api/dashboard', getDashboardHandler);
   fastify.post('/api/sendAlert', sendAlertHandler);
   fastify.post('/api/uploadScreenshot', uploadScreenshotHandler);

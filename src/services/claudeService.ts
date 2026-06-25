@@ -61,17 +61,14 @@ Respond strictly in JSON:
 }`;
 }
 
-const ANALYZE_DEAL_SYSTEM = `You are a trading mentor. Analyze a closed trade and give feedback.
+const ANALYZE_DEAL_SYSTEM = `You are a trading mentor. Analyze a closed trade and give feedback in Russian.
 Focus on: entry quality, checklist compliance, outcome.
 Find mistakes and concrete improvements.
 
 Respond strictly in JSON:
 {
-  "summary": "brief trade summary in English",
-  "summary_ru": "краткое резюме на русском",
-  "mistakes": ["mistake in English"],
+  "summary_ru": "краткое резюме сделки на русском",
   "mistakes_ru": ["ошибка на русском"],
-  "improvements": ["improvement in English"],
   "improvements_ru": ["улучшение на русском"]
 }`;
 
@@ -244,15 +241,25 @@ ${deal.claudeCheckResult ? `Рекомендация Claude при входе: $
   });
 
   const parsed = extractJson(text) as {
-    summary: string;
-    mistakes: string[];
-    improvements: string[];
+    summary?: string;
+    summary_ru?: string;
+    mistakes?: string[];
+    mistakes_ru?: string[];
+    improvements?: string[];
+    improvements_ru?: string[];
   };
 
+  const summaryRu = parsed.summary_ru ?? parsed.summary ?? '';
+  const mistakesRu = parsed.mistakes_ru ?? parsed.mistakes ?? [];
+  const improvementsRu = parsed.improvements_ru ?? parsed.improvements ?? [];
+
   return {
-    summary: parsed.summary,
-    mistakes: parsed.mistakes ?? [],
-    improvements: parsed.improvements ?? [],
+    summary: summaryRu,
+    summaryRu,
+    mistakes: mistakesRu,
+    mistakesRu,
+    improvements: improvementsRu,
+    improvementsRu,
     analyzedAt: new Date(),
   };
 }

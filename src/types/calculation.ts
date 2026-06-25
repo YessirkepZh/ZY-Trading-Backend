@@ -29,7 +29,10 @@ export interface ClaudeCheckResult {
 
 export interface ClaudeStatsResult {
   summary: string;
+  summaryRu: string;
   mistakes: string[];
+  mistakesRu: string[];
   improvements: string[];
+  improvementsRu: string[];
   analyzedAt: Date;
 }

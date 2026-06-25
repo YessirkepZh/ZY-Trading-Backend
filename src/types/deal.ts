@@ -49,10 +49,25 @@ export interface Deal {
   updatedAt: Date;
 }
 
+export interface MarketStats {
+  total: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+}
+
+export interface DealComment {
+  id: number;
+  dealId: number;
+  text: string;
+  createdAt: Date;
+}
+
 export interface DashboardStats {
   totalDeals: number;
   winRate: number;
   avgPassRoad: number;
   byStrategy: Record<Strategy, { total: number; wins: number; winRate: number }>;
+  byMarket: Record<MarketType, MarketStats>;
   recentDeals: Deal[];
 }

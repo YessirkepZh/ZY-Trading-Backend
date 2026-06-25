@@ -55,7 +55,12 @@ export const SendAlertSchema = z.object({
   text: z.string().min(1),
 });
 
+export const AddDealCommentSchema = z.object({
+  text: z.string().min(1).max(2000),
+});
+
 export type CreateNoteInput = z.infer<typeof CreateNoteSchema>;
 export type UpdateDealInput = z.infer<typeof UpdateDealSchema>;
 export type GetDealsInput = z.infer<typeof GetDealsSchema>;
 export type SendAlertInput = z.infer<typeof SendAlertSchema>;
+export type AddDealCommentInput = z.infer<typeof AddDealCommentSchema>;
