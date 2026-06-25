@@ -1,6 +1,12 @@
 import { pool } from '../db/pool';
 import type { Deal, DealPayload, DealStatus, DashboardStats, Strategy, MarketType, DealComment } from '../types/deal';
 import type { CalculationResult, ClaudeCheckResult, ClaudeStatsResult } from '../types/calculation';
+import {
+  CHECKLIST_STATS_QUERY,
+  CLOSED_DEALS_QUERY,
+  computeDashboardFromClosedDeals,
+  type ClosedDealRow,
+} from '../utils/dealMetrics';
 
 // ── Row mapper ────────────────────────────────────────────────────────────────
 
@@ -206,86 +212,42 @@ export async function checkDuplicate(
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
+function mapRowToClosedDeal(row: Record<string, unknown>): ClosedDealRow {
+  return {
+    id: row['id'] as number,
+    strategy: row['strategy'] as Strategy,
+    marketType: row['market_type'] as MarketType,
+    direction: row['direction'] as ClosedDealRow['direction'],
+    dealResult: row['deal_result'] as ClosedDealRow['dealResult'],
+    closePrice: row['close_price'] != null ? Number(row['close_price']) : undefined,
+    calcResult: (row['calc_result'] as CalculationResult) ?? {},
+    payload: (row['payload'] as DealPayload) ?? {},
+    passRoad: row['pass_road'] != null ? Number(row['pass_road']) : undefined,
+    closedAt: new Date(row['closed_at'] as string),
+  };
+}
+
 export async function getDashboardStats(): Promise<DashboardStats> {
-  const [totalResult, stratResult, marketResult, passRoadResult, recentResult] = await Promise.all([
-    pool.query<{ total: string; wins: string }>(
-      `SELECT COUNT(*) as total,
-              COUNT(*) FILTER (WHERE deal_result = 'win') as wins
-       FROM deals WHERE has_deal = true`,
-    ),
-    pool.query<{ strategy: string; total: string; wins: string }>(
-      `SELECT strategy,
-              COUNT(*) as total,
-              COUNT(*) FILTER (WHERE deal_result = 'win') as wins
-       FROM deals WHERE has_deal = true
-       GROUP BY strategy`,
-    ),
-    pool.query<{ market_type: string; total: string; wins: string; losses: string }>(
-      `SELECT market_type,
-              COUNT(*) as total,
-              COUNT(*) FILTER (WHERE deal_result = 'win') as wins,
-              COUNT(*) FILTER (WHERE deal_result = 'loss') as losses
-       FROM deals WHERE has_deal = true
-       GROUP BY market_type`,
-    ),
-    pool.query<{ avg_pass_road: string }>(
-      `SELECT AVG(pass_road) as avg_pass_road
-       FROM deals WHERE has_deal = true AND deal_result = 'win' AND pass_road IS NOT NULL`,
-    ),
+  const [closedResult, checklistResult, recentResult] = await Promise.all([
+    pool.query<Record<string, unknown>>(CLOSED_DEALS_QUERY),
+    pool.query<{
+      item_key: string;
+      item_type: string;
+      strategy: string;
+      in_wins: string;
+      in_losses: string;
+      total: string;
+    }>(CHECKLIST_STATS_QUERY),
     pool.query<Record<string, unknown>>(
       `SELECT * FROM deals ORDER BY created_at DESC LIMIT 10`,
     ),
   ]);
 
-  const totalRow = totalResult.rows[0];
-  const totalDeals = Number(totalRow?.total ?? 0);
-  const totalWins = Number(totalRow?.wins ?? 0);
-  const winRate = totalDeals > 0 ? Math.round((totalWins / totalDeals) * 100) : 0;
-
-  const avgPassRoadRow = passRoadResult.rows[0];
-  const avgPassRoad = Math.round(Number(avgPassRoadRow?.avg_pass_road ?? 0));
-
-  const allStrategies: Strategy[] = ['Пробой', 'Ложный Пробой', 'Отбой'];
-  const byStrategy = {} as Record<Strategy, { total: number; wins: number; winRate: number }>;
-
-  for (const s of allStrategies) {
-    byStrategy[s] = { total: 0, wins: 0, winRate: 0 };
-  }
-
-  for (const row of stratResult.rows) {
-    const s = row.strategy as Strategy;
-    const total = Number(row.total);
-    const wins = Number(row.wins);
-    byStrategy[s] = {
-      total,
-      wins,
-      winRate: total > 0 ? Math.round((wins / total) * 100) : 0,
-    };
-  }
-
-  const allMarkets: MarketType[] = ['crypto', 'stocks', 'forex'];
-  const byMarket = {} as Record<MarketType, { total: number; wins: number; losses: number; winRate: number }>;
-
-  for (const m of allMarkets) {
-    byMarket[m] = { total: 0, wins: 0, losses: 0, winRate: 0 };
-  }
-
-  for (const row of marketResult.rows) {
-    const m = row.market_type as MarketType;
-    const total = Number(row.total);
-    const wins = Number(row.wins);
-    const losses = Number(row.losses);
-    byMarket[m] = {
-      total,
-      wins,
-      losses,
-      winRate: total > 0 ? Math.round((wins / total) * 100) : 0,
-    };
-  }
-
+  const closedDeals = closedResult.rows.map(mapRowToClosedDeal);
+  const stats = computeDashboardFromClosedDeals(closedDeals, checklistResult.rows);
   const recentDeals = recentResult.rows.map(mapRowToDeal);
 
-  return { totalDeals, winRate, avgPassRoad, byStrategy, byMarket, recentDeals };
+  return { ...stats, recentDeals };
 }
 
 // ── Comments ──────────────────────────────────────────────────────────────────
