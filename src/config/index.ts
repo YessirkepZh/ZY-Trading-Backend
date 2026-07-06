@@ -40,7 +40,7 @@ export const config = {
   },
 
   twelveData: {
-    apiKey: required('TWELVE_DATA_API_KEY'),
+    apiKey: process.env['TWELVE_DATA_API_KEY'] ?? '',
   },
 
   cryptoCompare: {

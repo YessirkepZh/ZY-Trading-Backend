@@ -201,13 +201,16 @@ export async function getMarketData(
       if (!openBar) throw new Error(`No openBar for ${symbol}`);
       return { bars, openBar, currentBar };
     }
-    case 'stocks':
-      try {
-        return await fetchTwelveData(symbol);
-      } catch (err) {
-        console.warn('[marketData] Twelve Data failed, falling back to Polygon:', (err as Error).message);
-        return fetchPolygon(symbol);
+    case 'stocks': {
+      if (config.twelveData.apiKey) {
+        try {
+          return await fetchTwelveData(symbol);
+        } catch (err) {
+          console.warn('[marketData] Twelve Data failed, falling back to Polygon:', (err as Error).message);
+        }
       }
+      return fetchPolygon(symbol);
+    }
     case 'forex':
       return fetchStooq(symbol);
   }
