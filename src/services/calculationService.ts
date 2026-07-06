@@ -1,4 +1,4 @@
-import type { Direction } from '../types/deal';
+import type { Direction, Strategy } from '../types/deal';
 import type { CalculationResult } from '../types/calculation';
 import type { OhlcvBar } from '../types/market';
 import { round2, roundSmart } from '../utils/formatters';
@@ -101,6 +101,34 @@ export function computePassRoad(
   const bar = currentBar ?? bars[n - 1];
   if (!bar || atr <= 0) return null;
   return round2((Math.abs(bar[4] - bar[1]) / atr) * 100);
+}
+
+export function getPassRoadWarning(
+  passRoad: number,
+  strategy: Strategy,
+  atrPercent?: number,
+): string | null {
+  if (strategy === 'Ложный Пробой') {
+    const isHighVolatility = atrPercent != null && atrPercent > 5;
+    const warningThreshold = isHighVolatility ? 400 : 300;
+    const criticalThreshold = isHighVolatility ? 600 : 500;
+
+    if (passRoad > criticalThreshold) {
+      return `Пройдено ${passRoad.toFixed(0)}% ATR — экстремально высокий для ЛП`;
+    }
+    if (passRoad > warningThreshold) {
+      return `Пройдено ${passRoad.toFixed(0)}% ATR — высокий для ЛП, проверь запас хода до TP`;
+    }
+    return null;
+  }
+
+  if (passRoad > 70) {
+    return `Пройдено ${passRoad.toFixed(0)}% ATR — риск/доходность снижены`;
+  }
+  if (passRoad > 50) {
+    return `Пройдено ${passRoad.toFixed(0)}% ATR — допустимо, но следи за R:R`;
+  }
+  return null;
 }
 
 // ── Main calculation ─────────────────────────────────────────────────────────

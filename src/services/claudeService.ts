@@ -19,16 +19,41 @@ const MARKET_CONTEXT: Record<MarketType, string> = {
     '- DXY (US Dollar Index) moving opposite to USD pairs = warning',
 };
 
+const PASS_ROAD_RULES = `
+## Правила passRoad по стратегиям
+
+### Пробой и Отбой:
+- passRoad < 50% — отлично, полный потенциал
+- passRoad 50-70% — допустимо, предупреди трейдера
+- passRoad > 70% — критично, снижай рекомендацию
+- passRoad > 80% — рекомендуй пропустить по этому критерию
+
+### Ложный Пробой (ВАЖНО — другая логика!):
+- passRoad высокий (50-200%) — это НОРМАЛЬНО и является
+  ПРИЗНАКОМ сетапа. Энергия импульса исчерпана — это хорошо.
+  НЕ снижай рекомендацию из-за высокого passRoad при ЛП.
+- passRoad 200-400% — допустимо для волатильных инструментов
+  (крипто мемкоины с ATR% > 5%)
+- passRoad > 400% — предупреди но не делай это главным критерием
+- passRoad > 500% — тогда снижай рекомендацию
+
+### Для Ложного Пробоя фокусируйся на:
+1. Есть ли подтверждение возврата? (fp-close-back, fp-fast-return)
+2. Есть ли запас хода для TP в обратном направлении?
+3. Каково качество уровня? (touches, реакция)
+4. Есть ли сильный импульс на пробое (fp-strong-impulse) — это минус
+5. Рынок/индекс против направления пробоя?
+
+НЕ применяй правило passRoad < 50% к стратегии Ложный Пробой.
+`;
+
 function buildCheckSetupSystem(marketType: MarketType): string {
-  return `You are a trading assistant. Analyze the setup against strategy rules.
+  return `${PASS_ROAD_RULES}
+You are a trading assistant. Analyze the setup against strategy rules.
 Strategies: Breakout (Пробой), False Breakout (Ложный Пробой), Bounce (Отбой).
 
-Key metric — passRoad:
-- passRoad = how much % of the daily ATR the current candle body has already traveled from the day open price.
-- passRoad < 40%: excellent — plenty of range left, strong setup signal.
-- passRoad 40–60%: acceptable — some range remains.
-- passRoad > 60%: warning — most of the day's range is consumed, reward/risk is reduced.
-- passRoad > 80%: skip — almost no room left for the trade to develop.
+passRoad = how much % of the daily ATR the current candle body has already traveled from the day open price.
+Apply passRoad rules per strategy above — False Breakout uses different thresholds.
 
 Breakout rules:
 - Squeeze to the level on small bars = strong plus
@@ -47,8 +72,9 @@ Bounce rules:
 - Prior break of the level = minus
 
 The checklist items provided are already evaluated by the trader. Weight them heavily.
-If the checklist shows strong PLUS signals and passRoad < 60%, lean toward "take".
-Only suggest "skip" if there are clear structural problems (passRoad > 80%, multiple MINUS items, no PLUS items).
+For Breakout/Bounce: lean toward "take" when checklist PLUS is strong and passRoad < 70%.
+For False Breakout: do NOT penalize high passRoad — focus on return confirmation and setup quality.
+Only suggest "skip" if there are clear structural problems per strategy passRoad rules, multiple MINUS items, or no PLUS items.
 
 Respond strictly in JSON:
 {
@@ -147,10 +173,20 @@ export async function checkSetup(params: {
 }): Promise<ClaudeCheckResult> {
   const { ticker, marketType, strategy, direction, calcResult, checklist, ohlcvSummary, screenshotUrl } = params;
 
+  const volatilityContext = calcResult.atrPercent != null
+    ? calcResult.atrPercent > 5
+      ? 'ВЫСОКОВОЛАТИЛЬНЫЙ инструмент (ATR% > 5% — мемкоин/альткоин малой капы). Стандартные пороги passRoad неприменимы.'
+      : calcResult.atrPercent > 3
+        ? 'Волатильный инструмент (ATR% 3-5%). Пороги passRoad умеренно расширены.'
+        : 'Нормальная волатильность (ATR% < 3%). Стандартные пороги.'
+    : 'Волатильность неизвестна.';
+
   const userMessage = `
 Ticker: ${ticker} (${marketType})
 Strategy: ${strategyToEnglish(strategy)}
 Direction: ${direction}
+Волатильность инструмента: ${volatilityContext}
+ATR%: ${calcResult.atrPercent?.toFixed(2) ?? 'неизвестно'}%
 ATR: ${calcResult.atr}
 passRoad: ${calcResult.passRoad ?? 'n/a'}%
 rangeReserve: ${calcResult.rangeReserve ?? 'n/a'}

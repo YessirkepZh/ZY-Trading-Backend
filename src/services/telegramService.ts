@@ -1,5 +1,6 @@
 import type TelegramBot from 'node-telegram-bot-api';
 import { getLabelByKey } from '../checklists';
+import { getPassRoadWarning } from './calculationService';
 import type { Deal } from '../types/deal';
 import type { CalculationResult, ClaudeCheckResult } from '../types/calculation';
 import type { ChecklistSnapshot, Strategy } from '../types/deal';
@@ -49,10 +50,14 @@ export function formatScenarioMessage(
   const passRoadStr = calcResult.passRoad !== null
     ? `${calcResult.passRoad.toFixed()}%`
     : 'н/д';
-  const passRoadWarning =
-    calcResult.passRoad !== null && calcResult.passRoad > 60
-      ? `\n⚠️ Пройдено ${calcResult.passRoad.toFixed()}% ATR — риск/доходность снижены`
-      : '';
+  const passRoadWarningText = calcResult.passRoad !== null
+    ? getPassRoadWarning(calcResult.passRoad, strategy, calcResult.atrPercent ?? undefined)
+    : null;
+  const showPassRoadWarning = passRoadWarningText != null &&
+    !(strategy === 'Ложный Пробой' && calcResult.passRoad != null && calcResult.passRoad < 400);
+  const passRoadWarning = showPassRoadWarning
+    ? `\n⚠️ ${passRoadWarningText}`
+    : '';
 
   const lines: string[] = [
     `📈 *Сценарий ${strategy}*`,
