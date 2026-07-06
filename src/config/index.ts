@@ -36,7 +36,11 @@ export const config = {
   },
 
   polygon: {
-    apiKey: required('POLYGON_API_KEY'),
+    apiKey: process.env['POLYGON_API_KEY'] ?? '',  // fallback
+  },
+
+  twelveData: {
+    apiKey: required('TWELVE_DATA_API_KEY'),
   },
 
   cryptoCompare: {

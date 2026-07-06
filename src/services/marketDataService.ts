@@ -89,6 +89,71 @@ async function fetchPolygon(symbol: string): Promise<MarketData> {
   });
 }
 
+// ── Twelve Data (stocks) ─────────────────────────────────────────────────────
+
+interface TwelveDataBar {
+  datetime: string;
+  open:     string;
+  high:     string;
+  low:      string;
+  close:    string;
+  volume:   string;
+}
+
+async function fetchTwelveData(symbol: string): Promise<MarketData> {
+  return retry(async () => {
+    const response = await axios.get<{
+      status: string;
+      message?: string;
+      values?: TwelveDataBar[];
+    }>('https://api.twelvedata.com/time_series', {
+      params: {
+        symbol,
+        interval:   '1day',
+        outputsize: BARS_LIMIT,
+        apikey:     config.twelveData.apiKey,
+      },
+      timeout: 10000,
+    });
+
+    const data = response.data;
+
+    if (data.status === 'error') {
+      throw new Error(`Twelve Data error for ${symbol}: ${data.message ?? 'unknown'}`);
+    }
+
+    if (!data.values || data.values.length === 0) {
+      throw new Error(`Twelve Data: no values returned for ${symbol}`);
+    }
+
+    // Twelve Data returns newest-first — reverse to oldest-first
+    const reversed = [...data.values].reverse();
+
+    const bars: OhlcvBar[] = reversed.map((v) => [
+      new Date(v.datetime).getTime(),
+      parseFloat(v.open),
+      parseFloat(v.high),
+      parseFloat(v.low),
+      parseFloat(v.close),
+      parseFloat(v.volume) || 0,
+    ]);
+
+    if (bars.length < 10) {
+      throw new Error(`Twelve Data: not enough bars for ${symbol}: ${bars.length}`);
+    }
+
+    // Last bar = current (potentially unclosed) day candle
+    const currentBar = bars[bars.length - 1];
+    // Closed bars = all except current day
+    const closedBars = bars.slice(0, -1);
+    const openBar = closedBars[closedBars.length - 1];
+
+    if (!openBar) throw new Error(`No openBar for ${symbol}`);
+
+    return { bars: closedBars, openBar, currentBar };
+  }, { attempts: 3, delayMs: 1000 });
+}
+
 // ── Stooq (forex) ────────────────────────────────────────────────────────────
 
 async function fetchStooq(symbol: string): Promise<MarketData> {
@@ -137,7 +202,12 @@ export async function getMarketData(
       return { bars, openBar, currentBar };
     }
     case 'stocks':
-      return fetchPolygon(symbol);
+      try {
+        return await fetchTwelveData(symbol);
+      } catch (err) {
+        console.warn('[marketData] Twelve Data failed, falling back to Polygon:', (err as Error).message);
+        return fetchPolygon(symbol);
+      }
     case 'forex':
       return fetchStooq(symbol);
   }

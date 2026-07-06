@@ -36,6 +36,38 @@ export async function createNoteHandler(
       return;
     }
 
+    // ATR sanity check — защита от ввода ATR с неправильного таймфрейма (M5 вместо D1)
+    if (atrOverride && atrOverride > 0 && entryRaw > 0) {
+      const atrPct = (atrOverride / entryRaw) * 100;
+
+      const atrLimits: Record<string, { min: number; max: number }> = {
+        stocks: { min: 0.3,  max: 8   },
+        crypto: { min: 0.5,  max: 20  },
+        forex:  { min: 0.05, max: 2   },
+      };
+
+      const limits = atrLimits[marketType] ?? { min: 0.1, max: 20 };
+
+      if (atrPct < limits.min) {
+        reply.status(400).send({
+          success: false,
+          error: `⚠️ ATR слишком маленький (${atrPct.toFixed(3)}% от цены). ` +
+                 `Возможно взят с M5/M15 вместо D1. ` +
+                 `Убедись что индикатор ATR ZY открыт на D1 таймфрейме в TradingView.`,
+        });
+        return;
+      }
+
+      if (atrPct > limits.max) {
+        reply.status(400).send({
+          success: false,
+          error: `⚠️ ATR слишком большой (${atrPct.toFixed(1)}% от цены). ` +
+                 `Проверь правильность значения ATR.`,
+        });
+        return;
+      }
+    }
+
     // 1. Always fetch candles — needed for Claude ohlcvSummary
     const marketData = await marketDataService.getMarketData(ticker, marketType);
     const { bars, currentBar } = marketData;
@@ -80,10 +112,11 @@ export async function createNoteHandler(
     const id = await dealService.createDeal(payload, calcResult);
 
     // Upload setup screenshot if provided (non-fatal)
+    let setupScreenshotUrl: string | undefined;
     if (screenshot) {
       try {
-        const screenshotUrl = await storageService.uploadScreenshot(screenshot, id, 'setup');
-        await dealService.setScreenshot(id, 'setup', screenshotUrl);
+        setupScreenshotUrl = await storageService.uploadScreenshot(screenshot, id, 'setup');
+        await dealService.setScreenshot(id, 'setup', setupScreenshotUrl);
       } catch (err) {
         request.log.warn({ err }, 'Screenshot upload failed (non-fatal)');
       }
@@ -99,6 +132,7 @@ export async function createNoteHandler(
       calcResult,
       checklist: checklist ?? { plus: [], minus: [], wait: [] },
       ohlcvSummary,
+      screenshotUrl: setupScreenshotUrl,
     });
 
     // 7. Save Claude result
