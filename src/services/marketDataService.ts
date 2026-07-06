@@ -228,3 +228,99 @@ export function formatOhlcvSummary(bars: OhlcvBar[], count = 10): string {
     })
     .join('\n');
 }
+
+function barToSnapshot(bar: OhlcvBar) {
+  return {
+    date: new Date(bar[0]).toISOString().split('T')[0] ?? '',
+    timestamp: bar[0],
+    open: bar[1],
+    high: bar[2],
+    low: bar[3],
+    close: bar[4],
+    volume: bar[5],
+  };
+}
+
+export interface MarketPriceResult {
+  ticker: string;
+  marketType: 'stocks' | 'crypto' | 'forex';
+  source: string;
+  price: number;
+  currentBar: ReturnType<typeof barToSnapshot> | null;
+  lastClosedBar: ReturnType<typeof barToSnapshot>;
+  barsCount: number;
+  ohlcvSummary: string;
+}
+
+export async function getStockPrice(ticker: string): Promise<MarketPriceResult> {
+  let data: MarketData;
+  let source: string;
+
+  if (config.twelveData.apiKey) {
+    try {
+      data = await fetchTwelveData(ticker);
+      source = 'twelveData';
+    } catch (err) {
+      console.warn('[marketData] Twelve Data failed, falling back to Polygon:', (err as Error).message);
+      data = await fetchPolygon(ticker);
+      source = 'polygon';
+    }
+  } else {
+    data = await fetchPolygon(ticker);
+    source = 'polygon';
+  }
+
+  const priceBar = data.currentBar ?? data.openBar;
+
+  return {
+    ticker: ticker.toUpperCase(),
+    marketType: 'stocks',
+    source,
+    price: priceBar[4],
+    currentBar: data.currentBar ? barToSnapshot(data.currentBar) : null,
+    lastClosedBar: barToSnapshot(data.openBar),
+    barsCount: data.bars.length,
+    ohlcvSummary: formatOhlcvSummary(
+      data.currentBar ? [...data.bars, data.currentBar] : data.bars,
+      5,
+    ),
+  };
+}
+
+export async function getCryptoPrice(ticker: string): Promise<MarketPriceResult> {
+  const data = await getMarketData(ticker, 'crypto');
+  const priceBar = data.currentBar ?? data.openBar;
+
+  return {
+    ticker: ticker.toUpperCase(),
+    marketType: 'crypto',
+    source: 'cryptoCompare',
+    price: priceBar[4],
+    currentBar: data.currentBar ? barToSnapshot(data.currentBar) : null,
+    lastClosedBar: barToSnapshot(data.openBar),
+    barsCount: data.bars.length,
+    ohlcvSummary: formatOhlcvSummary(
+      data.currentBar ? [...data.bars, data.currentBar] : data.bars,
+      5,
+    ),
+  };
+}
+
+export async function getForexPrice(ticker: string): Promise<MarketPriceResult> {
+  const data = await getMarketData(ticker, 'forex');
+  const priceBar = data.currentBar ?? data.openBar;
+
+  return {
+    ticker: ticker.toUpperCase(),
+    marketType: 'forex',
+    source: 'stooq',
+    price: priceBar[4],
+    currentBar: data.currentBar ? barToSnapshot(data.currentBar) : null,
+    lastClosedBar: barToSnapshot(data.openBar),
+    barsCount: data.bars.length,
+    ohlcvSummary: formatOhlcvSummary(
+      data.currentBar ? [...data.bars, data.currentBar] : data.bars,
+      5,
+    ),
+  };
+}

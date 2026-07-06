@@ -20,6 +20,7 @@ import {
   updateChecklistItemHandler,
   deleteChecklistItemHandler,
 } from './handlers/manageChecklistItems';
+import { getStockPriceHandler, getCryptoPriceHandler, getForexPriceHandler } from './handlers/getMarketPrice';
 
 export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   // Error handler
@@ -39,6 +40,11 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
       timestamp: new Date().toISOString(),
     });
   });
+
+  // Market data diagnostics — verify external API providers
+  fastify.get<{ Params: { ticker: string } }>('/api/market/stocks/:ticker', getStockPriceHandler);
+  fastify.get<{ Params: { ticker: string } }>('/api/market/crypto/:ticker', getCryptoPriceHandler);
+  fastify.get<{ Params: { ticker: string } }>('/api/market/forex/:ticker', getForexPriceHandler);
 
   fastify.post('/api/createNote', createNoteHandler);
   fastify.post('/api/updateDeal', updateDealHandler);
