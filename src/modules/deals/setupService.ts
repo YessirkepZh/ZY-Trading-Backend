@@ -36,19 +36,33 @@ function validateAtrOverride(marketType: string, entryRaw: number, atrOverride: 
 
 export interface PreparedSetup {
   calcResult: CalculationResult;
+  /** Empty when every input came from the chart indicator and no candles were loaded */
   bars: OhlcvBar[];
-  atrSource: 'extension' | 'api';
+  atrSource: 'indicator' | 'extension' | 'api';
 }
 
-/** Validates the trader's input, loads candles and calculates entry/SL/TP */
+/** Validates the trader's input, loads candles when needed and calculates entry/SL/TP */
 export async function prepareSetup(input: PreviewSetupInput): Promise<PreparedSetup> {
   const {
     ticker, marketType, direction, entryRaw, customStop,
-    riskPercent, ratio, luftPercent, riskSum, atrOverride, passRoadOverride,
+    riskPercent, ratio, luftPercent, riskSum, atrOverride, passRoadOverride, dayOpen,
   } = input;
 
   const hasAtrOverride = atrOverride !== undefined && atrOverride > 0;
   if (hasAtrOverride) validateAtrOverride(marketType, entryRaw, atrOverride);
+
+  const setupParams = { direction, entryRaw, riskPercent, ratio, luftPercent, riskSum, customStop };
+
+  // ATR ZY indicator on the chart gives everything the calculation needs — no candle download
+  if (hasAtrOverride && passRoadOverride !== undefined && dayOpen !== undefined) {
+    const calcResult = calculationService.calculateSetup({
+      ...setupParams,
+      atr: atrOverride,
+      passRoad: passRoadOverride,
+      openPrice: dayOpen,
+    });
+    return { calcResult, bars: [], atrSource: 'indicator' };
+  }
 
   const { bars, currentBar } = await marketDataService.getMarketData(ticker, marketType);
 
@@ -58,16 +72,11 @@ export async function prepareSetup(input: PreviewSetupInput): Promise<PreparedSe
     : calculationService.computePassRoad(bars, atr, currentBar);
 
   const calcResult = calculationService.calculateSetup({
+    ...setupParams,
     atr,
     passRoad,
-    direction,
-    entryRaw,
-    openPrice: bars[bars.length - 1]?.[1],
-    riskPercent,
-    ratio,
-    luftPercent,
-    riskSum,
-    customStop,
+    // Today's open; providers without a forming bar only have the last daily bar
+    openPrice: currentBar?.[1] ?? bars[bars.length - 1]?.[1],
   });
 
   return { calcResult, bars, atrSource: hasAtrOverride ? 'extension' : 'api' };

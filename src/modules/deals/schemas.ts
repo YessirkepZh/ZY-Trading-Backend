@@ -42,6 +42,7 @@ export const CreateNoteSchema = z.object({
     .optional(),
   atrOverride: z.number().positive().optional(),          // ATR from TradingView label
   passRoadOverride: z.number().min(0).max(1000).optional(), // passRoad % from TradingView label
+  dayOpen: z.number().positive().optional(),              // today's open from the ATR ZY indicator
 });
 
 // Same inputs as createNote, minus everything that only matters once the deal is saved
@@ -57,6 +58,7 @@ export const UpdateDealSchema = z.object({
   id: z.number().int().positive(),
   status: z.enum(['entered', 'closed', 'missed']),
   closePrice: z.number().positive().optional(),
+  actualEntryPrice: z.number().positive().optional(), // real fill, when it differs from the planned entry
   dealResult: z.enum(['win', 'loss', 'breakeven']).optional(),
   screenshot: z.string().optional(), // base64 PNG
 });

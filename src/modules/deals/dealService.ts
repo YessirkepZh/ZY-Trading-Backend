@@ -22,6 +22,8 @@ function mapRowToDeal(row: Record<string, unknown>): Deal {
     hasDeal: Boolean(row['has_deal']),
     dealResult: row['deal_result'] as Deal['dealResult'],
     closePrice: row['close_price'] != null ? Number(row['close_price']) : undefined,
+    actualEntryPrice: row['actual_entry_price'] != null ? Number(row['actual_entry_price']) : undefined,
+    slippagePercent: row['slippage_percent'] != null ? Number(row['slippage_percent']) : undefined,
     closedAt: row['closed_at'] != null ? new Date(row['closed_at'] as string) : undefined,
     claudeStatsResult: row['claude_stats_result'] as Deal['claudeStatsResult'],
     screenshotSetup: row['screenshot_setup'] as string | undefined,
@@ -88,6 +90,17 @@ export async function updateDealStatus(
 
 export async function setEnteredAt(id: number): Promise<void> {
   await pool.query('UPDATE deals SET entered_at = NOW() WHERE id = $1', [id]);
+}
+
+export async function setActualEntry(
+  id: number,
+  actualEntryPrice: number,
+  slippagePercent: number,
+): Promise<void> {
+  await pool.query(
+    `UPDATE deals SET actual_entry_price = $2, slippage_percent = $3, updated_at = NOW() WHERE id = $1`,
+    [id, actualEntryPrice, slippagePercent],
+  );
 }
 
 export async function setClaudeCheck(id: number, result: ClaudeCheckResult): Promise<void> {

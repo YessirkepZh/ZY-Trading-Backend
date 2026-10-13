@@ -82,7 +82,7 @@ async function createNote(
     }
 
     // 6. Claude check — always has ohlcvSummary from bars
-    const ohlcvSummary = marketDataService.formatOhlcvSummary(bars);
+    const ohlcvSummary = bars.length > 0 ? marketDataService.formatOhlcvSummary(bars) : undefined;
     const claudeCheck = await claudeService.checkSetup({
       userId,
       ticker,

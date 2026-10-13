@@ -22,6 +22,7 @@ export interface ClosedDealRow {
   direction: Direction;
   dealResult?: 'win' | 'loss' | 'breakeven';
   closePrice?: number;
+  actualEntryPrice?: number;
   calcResult: CalculationResult;
   payload: DealPayload;
   passRoad?: number;
@@ -51,7 +52,8 @@ export function getIsoWeekInfo(date: Date): { period: string; weekStart: string 
 
 export function calcDealR(deal: ClosedDealRow): number | null {
   if (deal.closePrice == null) return null;
-  const { entryPrice } = deal.calcResult;
+  // Slippage changes the real risk, so the actual fill wins over the planned entry
+  const entryPrice = deal.actualEntryPrice ?? deal.calcResult.entryPrice;
   // The trader's own stop defines the real risk; the calculated one is only a suggestion
   const stopLoss = deal.payload.customStop ?? deal.calcResult.stopLossDefault;
   if (!entryPrice || !stopLoss) return null;
@@ -363,7 +365,7 @@ export const CHECKLIST_STATS_QUERY = `
 `;
 
 export const CLOSED_DEALS_QUERY = `
-  SELECT id, strategy, market_type, direction, deal_result, close_price,
+  SELECT id, strategy, market_type, direction, deal_result, close_price, actual_entry_price,
          calc_result, payload, pass_road, closed_at
   FROM deals
   WHERE user_id = $1 AND status = 'closed' AND closed_at IS NOT NULL

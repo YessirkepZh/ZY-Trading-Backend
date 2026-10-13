@@ -55,6 +55,10 @@ export interface Deal {
   hasDeal: boolean;
   dealResult?: 'win' | 'loss' | 'breakeven';
   closePrice?: number;
+  /** Real fill price; absent = filled at the planned entry */
+  actualEntryPrice?: number;
+  /** Signed % vs the planned entry, positive = worse for the trader */
+  slippagePercent?: number;
   closedAt?: Date;
   claudeStatsResult?: ClaudeStatsResult;
   screenshotSetup?: string;

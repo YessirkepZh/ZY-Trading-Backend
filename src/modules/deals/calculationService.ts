@@ -1,4 +1,4 @@
-import { round2, roundSmart } from '../../shared/formatters';
+import { round2, round4, roundSmart } from '../../shared/formatters';
 import type { Direction, Strategy } from '../../shared/trading';
 import type { OhlcvBar } from '../market';
 import type { CalculationResult } from './types';
@@ -207,6 +207,17 @@ export function calculateSetup(params: SetupParams): CalculationResult {
   return result;
 }
 
+/** Entry the order was planned at: the own-stop plan when the trader set a stop */
+export function plannedEntryPrice(calc: CalculationResult): number {
+  return calc.entryPriceByStop ?? calc.entryPrice;
+}
+
+/** Signed slippage in % of the planned entry, positive = worse for the trader */
+export function calcSlippagePercent(direction: Direction, planned: number, actual: number): number {
+  const diff = direction === 'long' ? actual - planned : planned - actual;
+  return round4((diff / planned) * 100);
+}
+
 export interface CalcParams {
   direction: Direction;
   entryRaw: number;
@@ -235,7 +246,7 @@ export function calculateDeal(params: CalcParams): CalculationResult {
     passRoad,
     direction,
     entryRaw,
-    openPrice: bars[n - 1]?.[1],
+    openPrice: currentBar?.[1] ?? bars[n - 1]?.[1],
     riskPercent,
     ratio,
     luftPercent,

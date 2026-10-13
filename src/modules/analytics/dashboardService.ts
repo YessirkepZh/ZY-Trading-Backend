@@ -19,6 +19,7 @@ function mapRowToClosedDeal(row: Record<string, unknown>): ClosedDealRow {
     direction: row['direction'] as ClosedDealRow['direction'],
     dealResult: row['deal_result'] as ClosedDealRow['dealResult'],
     closePrice: row['close_price'] != null ? Number(row['close_price']) : undefined,
+    actualEntryPrice: row['actual_entry_price'] != null ? Number(row['actual_entry_price']) : undefined,
     calcResult: (row['calc_result'] as CalculationResult) ?? {},
     payload: (row['payload'] as DealPayload) ?? {},
     passRoad: row['pass_road'] != null ? Number(row['pass_road']) : undefined,

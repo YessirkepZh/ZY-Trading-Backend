@@ -206,7 +206,8 @@ export async function checkSetup(params: {
   entryRaw: number;
   calcResult: CalculationResult;
   checklist: ChecklistSnapshot;
-  ohlcvSummary: string;
+  /** Absent when the setup came from the chart indicator: the screenshot carries the price context */
+  ohlcvSummary?: string;
   screenshotUrl?: string;
   /** Close-up of the entry timeframe pane */
   focusScreenshotUrl?: string;
@@ -244,9 +245,7 @@ Checklist (trader evaluation):
 PLUS: ${formatChecklistLabels(userId, strategy, checklist.plus)}
 MINUS: ${formatChecklistLabels(userId, strategy, checklist.minus)}
 WAIT: ${formatChecklistLabels(userId, strategy, checklist.wait)}
-
-Last 10 OHLCV bars:
-${ohlcvSummary}
+${ohlcvSummary ? `\nLast 10 OHLCV bars:\n${ohlcvSummary}` : ''}
 `.trim();
 
   const images: CaptionedImage[] = [];
@@ -283,7 +282,9 @@ export async function analyzeClosedDeal(deal: Deal): Promise<ClaudeStatsResult> 
 Уровень: ${deal.entryRaw}
 ATR: ${deal.calcResult.atr}
 passRoad: ${deal.calcResult.passRoad ?? 'н/д'}%
-Вход: ${deal.calcResult.entryPrice}
+Вход: ${deal.calcResult.entryPrice}${deal.actualEntryPrice !== undefined
+  ? `\nФактический вход: ${deal.actualEntryPrice} (проскальзывание ${deal.slippagePercent ?? 0}%, плюс = хуже для трейдера)`
+  : ''}
 SL: ${deal.calcResult.stopLossDefault}
 TP: ${deal.calcResult.takeProfitDefault}
 Результат: ${deal.dealResult ?? 'неизвестен'}

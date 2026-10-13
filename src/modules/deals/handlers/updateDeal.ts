@@ -2,11 +2,30 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import { claudeService } from '../../ai';
 import { storageService } from '../../storage';
 import { currentUser } from '../../auth';
+import * as calculationService from '../calculationService';
 import * as dealService from '../dealService';
 import { UpdateDealSchema } from '../schemas';
+import type { Deal } from '../types';
 
-const MAX_CLOSE_DEVIATION_ATR = 5;
-const MAX_CLOSE_DEVIATION_PCT = 0.5;
+interface DeviationLimit {
+  atr: number;
+  /** Fallback share of the entry when the deal has no ATR */
+  share: number;
+}
+
+const MAX_CLOSE_DEVIATION: DeviationLimit = { atr: 5, share: 0.5 };
+// A fill can slip, but not by more than a daily range
+const MAX_ACTUAL_ENTRY_DEVIATION: DeviationLimit = { atr: 1, share: 0.1 };
+
+/** Guards against a price carried over from another ticker; returns the error text or null */
+function farFromEntryError(deal: Deal, price: number, what: string, limit: DeviationLimit): string | null {
+  const entry = deal.calcResult.entryPrice || deal.entryRaw;
+  const atr = deal.calcResult.atr;
+  const maxDeviation = atr > 0 ? atr * limit.atr : entry * limit.share;
+  if (Math.abs(price - entry) <= maxDeviation) return null;
+  return `⚠️ ${what} ${price} слишком далеко от входа ${entry} по ${deal.ticker}. ` +
+         `Проверь, что цена взята с правильного тикера.`;
+}
 
 export async function updateDealHandler(
   request: FastifyRequest,
@@ -18,7 +37,7 @@ export async function updateDealHandler(
     return;
   }
 
-  const { id, status, closePrice, dealResult, screenshot } = parsed.data;
+  const { id, status, closePrice, actualEntryPrice, dealResult, screenshot } = parsed.data;
   const userId = currentUser(request).id;
 
   const deal = await dealService.getDealById(userId, id);
@@ -36,19 +55,32 @@ export async function updateDealHandler(
       return;
     }
 
-    // Guards against a close price carried over from another ticker
-    const entry = deal.calcResult.entryPrice || deal.entryRaw;
-    const atr = deal.calcResult.atr;
-    const maxDeviation = atr > 0 ? atr * MAX_CLOSE_DEVIATION_ATR : entry * MAX_CLOSE_DEVIATION_PCT;
-    if (Math.abs(closePrice - entry) > maxDeviation) {
-      reply.status(400).send({
-        success: false,
-        error: `⚠️ Цена закрытия ${closePrice} слишком далека от входа ${entry} по ${deal.ticker}. ` +
-               `Проверь, что цена взята с правильного тикера.`,
-      });
+    const closeError = farFromEntryError(deal, closePrice, 'Цена закрытия', MAX_CLOSE_DEVIATION);
+    if (closeError) {
+      reply.status(400).send({ success: false, error: closeError });
       return;
     }
+  }
 
+  if (actualEntryPrice !== undefined) {
+    if (status === 'missed') {
+      reply.status(400).send({ success: false, error: 'Фактический вход не указывается для пропущенной сделки' });
+      return;
+    }
+    const entryError = farFromEntryError(deal, actualEntryPrice, 'Фактический вход', MAX_ACTUAL_ENTRY_DEVIATION);
+    if (entryError) {
+      reply.status(400).send({ success: false, error: entryError });
+      return;
+    }
+    const slippage = calculationService.calcSlippagePercent(
+      deal.direction,
+      calculationService.plannedEntryPrice(deal.calcResult),
+      actualEntryPrice,
+    );
+    await dealService.setActualEntry(id, actualEntryPrice, slippage);
+  }
+
+  if (status === 'closed' && closePrice !== undefined && dealResult !== undefined) {
     await dealService.closeDeal(id, closePrice, dealResult);
 
     // Record checklist stats for analytics
