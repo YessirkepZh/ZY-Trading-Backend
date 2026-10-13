@@ -1,10 +1,10 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { config } from './config';
-import { registerRoutes } from './api/routes';
-import { initBot } from './bot/handlers';
+import { registerRoutes } from './app/routes';
 import { pool } from './db/pool';
-import { initChecklistCache } from './services/checklistItemService';
+import { initChecklistCache } from './modules/checklists';
+import { initBot } from './modules/telegram';
 
 const fastify = Fastify({
   bodyLimit: 10 * 1024 * 1024, // 10MB for base64 screenshots
