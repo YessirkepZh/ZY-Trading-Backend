@@ -10,11 +10,6 @@ export function registerAuthRoutes(fastify: FastifyInstance, hooks: AuthHooks): 
   fastify.post('/api/auth/logout', logoutHandler);
   fastify.get('/api/auth/me', meHandler);
 
-  // Kept for clients that still verify the legacy shared key
-  fastify.get('/api/auth/check', async (_request, reply) => {
-    reply.send({ success: true });
-  });
-
   fastify.get('/api/auth/api-tokens', listApiTokensHandler);
   fastify.post('/api/auth/api-tokens', createApiTokenHandler);
   fastify.delete<{ Params: { id: string } }>('/api/auth/api-tokens/:id', revokeApiTokenHandler);

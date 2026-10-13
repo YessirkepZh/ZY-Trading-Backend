@@ -1,4 +1,3 @@
-import { timingSafeEqual } from 'crypto';
 import { config } from '../../config';
 import * as repo from './authRepository';
 import {
@@ -31,13 +30,14 @@ export function normalizeEmail(email: string): string {
 }
 
 async function issueSession(user: AuthUser): Promise<Session> {
-  const { jwtSecret, accessTokenTtlSec, refreshTokenTtlSec } = config.auth;
+  const { jwtSecret, accessTokenTtlSec, refreshTokenTtlSec, maxSessionsPerUser } = config.auth;
   const refreshToken = generateToken(REFRESH_TOKEN_PREFIX);
   await repo.insertRefreshToken(
     user.id,
     hashToken(refreshToken),
     new Date(Date.now() + refreshTokenTtlSec * 1000),
   );
+  if (user.role !== 'admin') await repo.evictOldRefreshTokens(user.id, maxSessionsPerUser);
   return {
     user,
     accessToken: signAccessToken(user, jwtSecret, accessTokenTtlSec),
@@ -100,7 +100,7 @@ export async function refresh(refreshToken: string): Promise<Session | null> {
   const userId = await repo.consumeRefreshToken(tokenHash);
 
   if (userId === null) {
-    const reusedBy = await repo.findRevokedRefreshTokenOwner(tokenHash);
+    const reusedBy = await repo.findRotatedRefreshTokenOwner(tokenHash);
     if (reusedBy !== null) await repo.revokeAllRefreshTokens(reusedBy);
     return null;
   }
@@ -115,43 +115,51 @@ export async function logout(refreshToken: string): Promise<void> {
 
 // ── Request authentication ────────────────────────────────────────────────────
 
-function isLegacyApiKey(value: string): boolean {
-  if (!config.apiKey) return false;
-  const given = Buffer.from(value);
-  const expected = Buffer.from(config.apiKey);
-  return given.length === expected.length && timingSafeEqual(given, expected);
-}
+export type AuthResult =
+  | { status: 'ok'; user: AuthUser }
+  | { status: 'unauthorized' | 'device_required' | 'device_mismatch' };
 
 export async function authenticate(headers: {
   authorization?: string;
   apiKey?: string;
-}): Promise<AuthUser | null> {
+  deviceId?: string;
+}): Promise<AuthResult> {
   const bearer = headers.authorization?.match(/^Bearer (.+)$/)?.[1];
   if (bearer) {
     const payload = verifyAccessToken(bearer, config.auth.jwtSecret);
-    return payload ? repo.findActiveUserById(payload.sub) : null;
+    const user = payload ? await repo.findActiveUserById(payload.sub) : null;
+    return user ? { status: 'ok', user } : { status: 'unauthorized' };
   }
 
   const apiKey = headers.apiKey;
-  if (!apiKey) return null;
-  if (apiKey.startsWith(API_TOKEN_PREFIX)) {
-    return repo.findUserByApiTokenHash(hashToken(apiKey));
+  if (!apiKey?.startsWith(API_TOKEN_PREFIX)) return { status: 'unauthorized' };
+  const found = await repo.findApiTokenOwner(hashToken(apiKey));
+  if (!found) return { status: 'unauthorized' };
+
+  // Admin tokens are not bound to a device
+  if (found.user.role === 'admin') {
+    await repo.useApiToken(found.tokenId, null);
+    return { status: 'ok', user: found.user };
   }
-  return isLegacyApiKey(apiKey) ? repo.findOwner() : null;
+  if (!headers.deviceId) return { status: 'device_required' };
+  const bound = await repo.useApiToken(found.tokenId, headers.deviceId);
+  return bound ? { status: 'ok', user: found.user } : { status: 'device_mismatch' };
 }
 
 // ── API tokens ────────────────────────────────────────────────────────────────
 
+/** Non-admin users keep a single active token: a new one revokes the previous */
 export async function createApiToken(
-  userId: number,
+  user: AuthUser,
   name: string,
 ): Promise<{ token: string; info: ApiTokenInfo }> {
   const token = generateToken(API_TOKEN_PREFIX);
   const info = await repo.insertApiToken({
-    userId,
+    userId: user.id,
     name,
     tokenHash: hashToken(token),
     tokenPrefix: token.slice(0, API_TOKEN_PREFIX.length + 6),
+    replaceExisting: user.role !== 'admin',
   });
   return { token, info };
 }

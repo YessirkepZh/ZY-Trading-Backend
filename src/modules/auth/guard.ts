@@ -10,6 +10,17 @@ const PUBLIC_PATHS = new Set([
   '/api/auth/invites/accept',
 ]);
 
+const DEVICE_ID_PATTERN = /^[A-Za-z0-9-]{8,64}$/;
+
+const AUTH_ERRORS = {
+  unauthorized: { status: 401, error: 'Unauthorized' },
+  device_required: { status: 403, error: 'Обновите расширение: оно не передаёт идентификатор устройства' },
+  device_mismatch: {
+    status: 403,
+    error: 'Токен привязан к другому устройству. Создайте новый токен на странице «Доступ»',
+  },
+} as const;
+
 export function registerAuthGuard(fastify: FastifyInstance): void {
   fastify.decorateRequest('user', null);
 
@@ -18,14 +29,17 @@ export function registerAuthGuard(fastify: FastifyInstance): void {
     if (PUBLIC_PATHS.has(request.url.split('?')[0] ?? '')) return;
 
     const apiKey = request.headers['x-api-key'];
-    const user = await authenticate({
+    const deviceId = request.headers['x-device-id'];
+    const result = await authenticate({
       authorization: request.headers.authorization,
       apiKey: typeof apiKey === 'string' ? apiKey : undefined,
+      deviceId: typeof deviceId === 'string' && DEVICE_ID_PATTERN.test(deviceId) ? deviceId : undefined,
     });
-    if (!user) {
-      return reply.status(401).send({ success: false, error: 'Unauthorized' });
+    if (result.status !== 'ok') {
+      const { status, error } = AUTH_ERRORS[result.status];
+      return reply.status(status).send({ success: false, error });
     }
-    request.user = user;
+    request.user = result.user;
   });
 }
 

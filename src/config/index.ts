@@ -1,10 +1,9 @@
 import { randomBytes } from 'crypto';
-import dotenv from 'dotenv';
-dotenv.config();
+import { env } from './confFile';
 
 function required(key: string): string {
-  const val = process.env[key];
-  if (!val) throw new Error(`Missing required env variable: ${key}`);
+  const val = env(key);
+  if (!val) throw new Error(`Missing required setting: ${key} (env variable or config/conf.json)`);
   return val;
 }
 
@@ -15,11 +14,11 @@ const DEFAULT_PRODUCTION_ORIGINS = [
 ];
 
 function parseCorsOrigins(): string[] | true {
-  const raw = process.env['CORS_ORIGINS']?.trim();
+  const raw = env('CORS_ORIGINS')?.trim();
   if (raw) {
     return raw.split(',').map(s => s.trim().replace(/\/$/, '')).filter(Boolean);
   }
-  const nodeEnv = process.env['NODE_ENV'] || 'development';
+  const nodeEnv = env('NODE_ENV') || 'development';
   if (nodeEnv === 'production') {
     return DEFAULT_PRODUCTION_ORIGINS;
   }
@@ -27,30 +26,30 @@ function parseCorsOrigins(): string[] | true {
 }
 
 function resolveJwtSecret(): string {
-  const secret = process.env['JWT_SECRET']?.trim();
+  const secret = env('JWT_SECRET')?.trim();
   if (secret) return secret;
-  if ((process.env['NODE_ENV'] || 'development') === 'production') {
-    throw new Error('Missing required env variable: JWT_SECRET');
+  if ((env('NODE_ENV') || 'development') === 'production') {
+    throw new Error('Missing required setting: JWT_SECRET (env variable or config/conf.json)');
   }
   console.warn('JWT_SECRET is not set — using an ephemeral secret, sessions reset on restart');
   return randomBytes(32).toString('hex');
 }
 
 // Polling with the same token from two instances steals updates from production
-const botEnabled = process.env['BOT_ENABLED'] !== 'false';
+const botEnabled = (env('BOT_ENABLED') ?? 'true') !== 'false';
 
 export const config = {
-  port: Number(process.env['PORT']) || 3001,
-  nodeEnv: process.env['NODE_ENV'] || 'development',
+  port: Number(env('PORT')) || 3001,
+  nodeEnv: env('NODE_ENV') || 'development',
   corsOrigins: parseCorsOrigins(),
-  // Legacy shared key, acts as the owner account. Empty value disables it
-  apiKey: process.env['API_KEY']?.trim() ?? '',
 
   auth: {
     jwtSecret: resolveJwtSecret(),
     accessTokenTtlSec: 15 * 60,
     refreshTokenTtlSec: 30 * 24 * 60 * 60,
     inviteTtlSec: 7 * 24 * 60 * 60,
+    // Simultaneous web logins per non-admin user; the oldest session is signed out
+    maxSessionsPerUser: 2,
   },
 
   telegram: {
@@ -60,11 +59,11 @@ export const config = {
   },
 
   polygon: {
-    apiKey: process.env['POLYGON_API_KEY'] ?? '',  // fallback
+    apiKey: env('POLYGON_API_KEY') ?? '',  // fallback
   },
 
   twelveData: {
-    apiKey: process.env['TWELVE_DATA_API_KEY'] ?? '',
+    apiKey: env('TWELVE_DATA_API_KEY') ?? '',
   },
 
   cryptoCompare: {
@@ -81,10 +80,10 @@ export const config = {
   },
 
   risk: {
-    cryptoDefault: Number(process.env['RISK_CRYPTO_DEFAULT']) || 15,
-    luftPercent: Number(process.env['LUFT_PERCENT']) || 20,
-    ratio: Number(process.env['RATIO']) || 3,
-    riskSum: Number(process.env['RISK_SUM']) || 15,
+    cryptoDefault: Number(env('RISK_CRYPTO_DEFAULT')) || 15,
+    luftPercent: Number(env('LUFT_PERCENT')) || 20,
+    ratio: Number(env('RATIO')) || 3,
+    riskSum: Number(env('RISK_SUM')) || 15,
   },
 
   r2: (() => {

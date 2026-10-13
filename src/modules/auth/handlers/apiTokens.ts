@@ -18,7 +18,7 @@ export async function createApiTokenHandler(request: FastifyRequest, reply: Fast
     reply.status(400).send({ success: false, error: parsed.error.flatten() });
     return;
   }
-  const { token, info } = await authService.createApiToken(currentUser(request).id, parsed.data.name);
+  const { token, info } = await authService.createApiToken(currentUser(request), parsed.data.name);
   reply.status(201).send({ success: true, token, apiToken: info });
 }
 

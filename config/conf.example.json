@@ -1,0 +1,39 @@
+{
+  "http": {
+    "port": 3001,
+    "environment": "development",
+    "cors_origins": []
+  },
+  "auth": {
+    "jwt_secret": ""
+  },
+  "postgres": {
+    "connection_url": "postgresql://postgres@localhost:5433/edgemark_dev"
+  },
+  "telegram": {
+    "enabled": false,
+    "token": "",
+    "allowed_users": []
+  },
+  "anthropic": {
+    "api_key": ""
+  },
+  "market": {
+    "twelve_data_api_key": "",
+    "polygon_api_key": "",
+    "cryptocompare_api_key": ""
+  },
+  "r2": {
+    "account_id": "",
+    "access_key_id": "",
+    "secret_access_key": "",
+    "bucket_name": "",
+    "public_url": ""
+  },
+  "risk": {
+    "crypto_default": 15,
+    "luft_percent": 20,
+    "ratio": 3,
+    "risk_sum": 15
+  }
+}

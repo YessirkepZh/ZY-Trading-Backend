@@ -13,6 +13,7 @@ export interface ApiTokenInfo {
   tokenPrefix: string;
   lastUsedAt: Date | null;
   createdAt: Date;
+  deviceBound: boolean;
 }
 
 export interface InviteInfo {

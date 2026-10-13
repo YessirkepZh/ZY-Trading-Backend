@@ -92,7 +92,7 @@ export async function insertRefreshToken(userId: number, tokenHash: string, expi
 /** Revokes a valid token and returns its owner; null if token is unknown, expired or already used */
 export async function consumeRefreshToken(tokenHash: string): Promise<number | null> {
   const { rows } = await pool.query<{ user_id: number }>(
-    `UPDATE refresh_tokens SET revoked_at = NOW()
+    `UPDATE refresh_tokens SET revoked_at = NOW(), revoke_reason = 'rotated'
      WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > NOW()
      RETURNING user_id`,
     [tokenHash],
@@ -100,9 +100,10 @@ export async function consumeRefreshToken(tokenHash: string): Promise<number | n
   return rows[0]?.user_id ?? null;
 }
 
-export async function findRevokedRefreshTokenOwner(tokenHash: string): Promise<number | null> {
+/** Owner of a token that was already rotated — presenting it again means it was copied */
+export async function findRotatedRefreshTokenOwner(tokenHash: string): Promise<number | null> {
   const { rows } = await pool.query<{ user_id: number }>(
-    'SELECT user_id FROM refresh_tokens WHERE token_hash = $1 AND revoked_at IS NOT NULL',
+    `SELECT user_id FROM refresh_tokens WHERE token_hash = $1 AND revoke_reason = 'rotated'`,
     [tokenHash],
   );
   return rows[0]?.user_id ?? null;
@@ -110,15 +111,31 @@ export async function findRevokedRefreshTokenOwner(tokenHash: string): Promise<n
 
 export async function revokeRefreshToken(tokenHash: string): Promise<void> {
   await pool.query(
-    'UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = $1 AND revoked_at IS NULL',
+    `UPDATE refresh_tokens SET revoked_at = NOW(), revoke_reason = 'logout'
+     WHERE token_hash = $1 AND revoked_at IS NULL`,
     [tokenHash],
   );
 }
 
 export async function revokeAllRefreshTokens(userId: number): Promise<void> {
   await pool.query(
-    'UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL',
+    `UPDATE refresh_tokens SET revoked_at = NOW(), revoke_reason = 'revoked'
+     WHERE user_id = $1 AND revoked_at IS NULL`,
     [userId],
+  );
+}
+
+/** Signs out all but the `keep` most recently issued sessions of the user */
+export async function evictOldRefreshTokens(userId: number, keep: number): Promise<void> {
+  await pool.query(
+    `UPDATE refresh_tokens SET revoked_at = NOW(), revoke_reason = 'evicted'
+     WHERE id IN (
+       SELECT id FROM refresh_tokens
+       WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > NOW()
+       ORDER BY created_at DESC, id DESC
+       OFFSET $2
+     )`,
+    [userId, keep],
   );
 }
 
@@ -130,7 +147,11 @@ interface ApiTokenRow {
   token_prefix: string;
   last_used_at: Date | null;
   created_at: Date;
+  device_bound: boolean;
 }
+
+const API_TOKEN_COLUMNS =
+  'id, name, token_prefix, last_used_at, created_at, device_id IS NOT NULL AS device_bound';
 
 function mapApiToken(row: ApiTokenRow): ApiTokenInfo {
   return {
@@ -139,29 +160,48 @@ function mapApiToken(row: ApiTokenRow): ApiTokenInfo {
     tokenPrefix: row.token_prefix,
     lastUsedAt: row.last_used_at,
     createdAt: row.created_at,
+    deviceBound: row.device_bound,
   };
 }
 
+/** Inserts a token; with `replaceExisting` the user's other tokens are revoked in the same transaction */
 export async function insertApiToken(params: {
   userId: number;
   name: string;
   tokenHash: string;
   tokenPrefix: string;
+  replaceExisting: boolean;
 }): Promise<ApiTokenInfo> {
-  const { rows } = await pool.query<ApiTokenRow>(
-    `INSERT INTO api_tokens (user_id, name, token_hash, token_prefix)
-     VALUES ($1, $2, $3, $4)
-     RETURNING id, name, token_prefix, last_used_at, created_at`,
-    [params.userId, params.name, params.tokenHash, params.tokenPrefix],
-  );
-  const row = rows[0];
-  if (!row) throw new Error('insertApiToken: no row returned');
-  return mapApiToken(row);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    if (params.replaceExisting) {
+      await client.query(
+        'UPDATE api_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL',
+        [params.userId],
+      );
+    }
+    const { rows } = await client.query<ApiTokenRow>(
+      `INSERT INTO api_tokens (user_id, name, token_hash, token_prefix)
+       VALUES ($1, $2, $3, $4)
+       RETURNING ${API_TOKEN_COLUMNS}`,
+      [params.userId, params.name, params.tokenHash, params.tokenPrefix],
+    );
+    const row = rows[0];
+    if (!row) throw new Error('insertApiToken: no row returned');
+    await client.query('COMMIT');
+    return mapApiToken(row);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 export async function listApiTokens(userId: number): Promise<ApiTokenInfo[]> {
   const { rows } = await pool.query<ApiTokenRow>(
-    `SELECT id, name, token_prefix, last_used_at, created_at FROM api_tokens
+    `SELECT ${API_TOKEN_COLUMNS} FROM api_tokens
      WHERE user_id = $1 AND revoked_at IS NULL
      ORDER BY created_at DESC`,
     [userId],
@@ -177,16 +217,31 @@ export async function revokeApiToken(userId: number, id: number): Promise<boolea
   return (result.rowCount ?? 0) > 0;
 }
 
-export async function findUserByApiTokenHash(tokenHash: string): Promise<AuthUser | null> {
-  const { rows } = await pool.query<UserRow>(
-    `UPDATE api_tokens t SET last_used_at = NOW()
-     FROM users u
-     WHERE t.token_hash = $1 AND t.revoked_at IS NULL
-       AND u.id = t.user_id AND u.is_active = TRUE
-     RETURNING u.*`,
+export async function findApiTokenOwner(tokenHash: string): Promise<{ tokenId: number; user: AuthUser } | null> {
+  const { rows } = await pool.query<UserRow & { token_id: number }>(
+    `SELECT u.*, t.id AS token_id
+     FROM api_tokens t
+     JOIN users u ON u.id = t.user_id
+     WHERE t.token_hash = $1 AND t.revoked_at IS NULL AND u.is_active = TRUE`,
     [tokenHash],
   );
-  return rows[0] ? toAuthUser(mapUser(rows[0])) : null;
+  const row = rows[0];
+  return row ? { tokenId: row.token_id, user: toAuthUser(mapUser(row)) } : null;
+}
+
+/**
+ * Records token usage. With a device id the token is bound to it on first use;
+ * returns false when the token is already bound to another device.
+ */
+export async function useApiToken(tokenId: number, deviceId: string | null): Promise<boolean> {
+  const result = deviceId === null
+    ? await pool.query('UPDATE api_tokens SET last_used_at = NOW() WHERE id = $1', [tokenId])
+    : await pool.query(
+        `UPDATE api_tokens SET device_id = COALESCE(device_id, $2), last_used_at = NOW()
+         WHERE id = $1 AND (device_id IS NULL OR device_id = $2)`,
+        [tokenId, deviceId],
+      );
+  return (result.rowCount ?? 0) > 0;
 }
 
 // ── Invites ───────────────────────────────────────────────────────────────────

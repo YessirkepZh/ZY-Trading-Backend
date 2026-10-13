@@ -12,6 +12,7 @@ const migrations = [
   '007_add_checklist_groups.sql',
   '008_create_deal_comments.sql',
   '009_create_users_auth.sql',
+  '010_device_limits.sql',
 ];
 
 // Migrations that existed before tracking was introduced — the only ones bootstrap may mark as applied
