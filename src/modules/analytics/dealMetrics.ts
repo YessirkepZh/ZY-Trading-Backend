@@ -51,10 +51,12 @@ export function getIsoWeekInfo(date: Date): { period: string; weekStart: string 
 
 export function calcDealR(deal: ClosedDealRow): number | null {
   if (deal.closePrice == null) return null;
-  const { entryPrice, stopLossDefault } = deal.calcResult;
-  if (!entryPrice || !stopLossDefault) return null;
+  const { entryPrice } = deal.calcResult;
+  // The trader's own stop defines the real risk; the calculated one is only a suggestion
+  const stopLoss = deal.payload.customStop ?? deal.calcResult.stopLossDefault;
+  if (!entryPrice || !stopLoss) return null;
 
-  const risk = Math.abs(entryPrice - stopLossDefault);
+  const risk = Math.abs(entryPrice - stopLoss);
   if (risk === 0) return null;
 
   const pnl = deal.direction === 'long'
