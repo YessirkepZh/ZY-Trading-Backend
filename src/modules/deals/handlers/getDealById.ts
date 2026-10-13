@@ -1,4 +1,5 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
+import { currentUser } from '../../auth';
 import * as dealService from '../dealService';
 
 export async function getDealByIdHandler(
@@ -11,7 +12,7 @@ export async function getDealByIdHandler(
     return;
   }
 
-  const deal = await dealService.getDealById(id);
+  const deal = await dealService.getDealById(currentUser(request).id, id);
   if (!deal) {
     reply.status(404).send({ success: false, error: `Deal #${id} not found` });
     return;

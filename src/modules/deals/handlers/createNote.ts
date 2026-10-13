@@ -3,6 +3,7 @@ import { claudeService } from '../../ai';
 import { marketDataService } from '../../market';
 import { storageService } from '../../storage';
 import * as calculationService from '../calculationService';
+import { currentUser } from '../../auth';
 import * as dealService from '../dealService';
 import { CreateNoteSchema } from '../schemas';
 import type { DealNotifier } from '../types';
@@ -25,6 +26,7 @@ async function createNote(
     }
 
     const input = parsed.data;
+    const userId = currentUser(request).id;
     const {
       ticker, marketType, strategy, direction,
       entryRaw, customStop, riskPercent, ratio, luftPercent, riskSum, checklist, screenshot,
@@ -32,7 +34,7 @@ async function createNote(
     } = input;
 
     // Deduplication check
-    const isDuplicate = await dealService.checkDuplicate(ticker, entryRaw, direction);
+    const isDuplicate = await dealService.checkDuplicate(userId, ticker, entryRaw, direction);
     if (isDuplicate) {
       reply.status(409).send({
         success: false,
@@ -114,7 +116,7 @@ async function createNote(
       customStop, riskPercent, ratio, luftPercent, riskSum,
       checklist,
     };
-    const id = await dealService.createDeal(payload, calcResult);
+    const id = await dealService.createDeal(userId, payload, calcResult);
 
     // Upload setup screenshot if provided (non-fatal)
     let setupScreenshotUrl: string | undefined;
@@ -130,6 +132,7 @@ async function createNote(
     // 6. Claude check — always has ohlcvSummary from bars
     const ohlcvSummary = marketDataService.formatOhlcvSummary(bars);
     const claudeCheck = await claudeService.checkSetup({
+      userId,
       ticker,
       marketType,
       strategy,
@@ -148,7 +151,7 @@ async function createNote(
 
     // 9. Send Telegram notification (non-fatal — bot may be unavailable)
     try {
-      const deal = await dealService.getDealById(id);
+      const deal = await dealService.getDealById(userId, id);
       if (deal) {
         await notifier.notifyNewDeal(deal, calcResult, claudeCheck, checklist);
       }

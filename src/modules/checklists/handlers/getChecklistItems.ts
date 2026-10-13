@@ -1,5 +1,6 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import type { Strategy } from '../../../shared/trading';
+import { currentUser } from '../../auth';
 import * as svc from '../checklistItemService';
 
 const VALID_STRATEGIES: Strategy[] = ['Пробой', 'Ложный Пробой', 'Отбой'];
@@ -16,6 +17,7 @@ export async function getChecklistItemsHandler(
   reply: FastifyReply,
 ): Promise<void> {
   const { groupId, strategy } = request.query;
+  const userId = currentUser(request).id;
 
   if (groupId !== undefined) {
     const id = parseInt(groupId, 10);
@@ -23,7 +25,7 @@ export async function getChecklistItemsHandler(
       reply.status(400).send({ success: false, error: 'Invalid groupId' });
       return;
     }
-    reply.send({ success: true, items: svc.getItemsByGroupId(id) });
+    reply.send({ success: true, items: svc.getItemsByGroupId(userId, id) });
     return;
   }
 
@@ -32,11 +34,11 @@ export async function getChecklistItemsHandler(
       reply.status(400).send({ success: false, error: `Unknown strategy: ${strategy}` });
       return;
     }
-    reply.send({ success: true, items: svc.getItemsByStrategy(strategy as Strategy) });
+    reply.send({ success: true, items: svc.getItemsByStrategy(userId, strategy as Strategy) });
     return;
   }
 
-  reply.send({ success: true, items: svc.getAllItems() });
+  reply.send({ success: true, items: svc.getAllItems(userId) });
 }
 
 /**
@@ -60,11 +62,11 @@ export async function getChecklistItemsHandler(
  * }
  */
 export async function getChecklistForExtensionHandler(
-  _request: FastifyRequest,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
   const groups = svc.getAllGroups();
-  const items = svc.getAllItems();
+  const items = svc.getAllItems(currentUser(request).id);
 
   const result = groups.map((g) => {
     const groupItems = items.filter((i) => i.groupId === g.id);

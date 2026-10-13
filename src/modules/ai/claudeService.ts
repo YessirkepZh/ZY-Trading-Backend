@@ -155,12 +155,13 @@ function strategyToEnglish(strategy: Strategy): string {
   return map[strategy];
 }
 
-function formatChecklistLabels(strategy: Strategy, keys: string[]): string {
+function formatChecklistLabels(userId: number, strategy: Strategy, keys: string[]): string {
   if (keys.length === 0) return 'none';
-  return keys.map((k) => getLabelByKey(strategy, k)).join('; ');
+  return keys.map((k) => getLabelByKey(userId, strategy, k)).join('; ');
 }
 
 export async function checkSetup(params: {
+  userId: number;
   ticker: string;
   marketType: MarketType;
   strategy: Strategy;
@@ -170,7 +171,7 @@ export async function checkSetup(params: {
   ohlcvSummary: string;
   screenshotUrl?: string;
 }): Promise<ClaudeCheckResult> {
-  const { ticker, marketType, strategy, direction, calcResult, checklist, ohlcvSummary, screenshotUrl } = params;
+  const { userId, ticker, marketType, strategy, direction, calcResult, checklist, ohlcvSummary, screenshotUrl } = params;
 
   const volatilityContext = calcResult.atrPercent != null
     ? calcResult.atrPercent > 5
@@ -194,9 +195,9 @@ SL: ${calcResult.stopLossDefault}
 TP: ${calcResult.takeProfitDefault}
 
 Checklist (trader evaluation):
-PLUS: ${formatChecklistLabels(strategy, checklist.plus)}
-MINUS: ${formatChecklistLabels(strategy, checklist.minus)}
-WAIT: ${formatChecklistLabels(strategy, checklist.wait)}
+PLUS: ${formatChecklistLabels(userId, strategy, checklist.plus)}
+MINUS: ${formatChecklistLabels(userId, strategy, checklist.minus)}
+WAIT: ${formatChecklistLabels(userId, strategy, checklist.wait)}
 
 Last 10 OHLCV bars:
 ${ohlcvSummary}

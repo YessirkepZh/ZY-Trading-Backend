@@ -15,6 +15,7 @@ interface GroupRow {
 
 interface ItemRow {
   id: number;
+  user_id: number;
   group_id: number;
   strategy: string;
   item_type: ItemType;
@@ -72,8 +73,9 @@ export interface UpdateChecklistItemInput {
 
 // ── In-memory cache ───────────────────────────────────────────────────────────
 
+// Groups are the shared strategies; items belong to a user
 let cachedGroups: ChecklistGroup[] = [];
-let cachedItems: ChecklistItemPublic[] = [];
+let cachedItemsByUser = new Map<number, ChecklistItemPublic[]>();
 
 function mapGroup(row: GroupRow): ChecklistGroup {
   return { id: row.id, name: row.name, position: row.position };
@@ -96,8 +98,18 @@ async function loadCache(): Promise<void> {
     pool.query<GroupRow>(`SELECT * FROM checklist_groups ORDER BY position, id`),
     pool.query<ItemRow>(`SELECT * FROM checklist_items ORDER BY group_id, item_type, position, id`),
   ]);
+  const byUser = new Map<number, ChecklistItemPublic[]>();
+  for (const row of itemsResult.rows) {
+    const items = byUser.get(row.user_id) ?? [];
+    items.push(mapItem(row));
+    byUser.set(row.user_id, items);
+  }
   cachedGroups = groupsResult.rows.map(mapGroup);
-  cachedItems = itemsResult.rows.map(mapItem);
+  cachedItemsByUser = byUser;
+}
+
+function userItems(userId: number): ChecklistItemPublic[] {
+  return cachedItemsByUser.get(userId) ?? [];
 }
 
 export async function initChecklistCache(): Promise<void> {
@@ -112,8 +124,8 @@ function refreshCache(): void {
 
 // ── Sync accessors (use cache) ────────────────────────────────────────────────
 
-export function getLabelByKey(strategy: Strategy, key: string): string {
-  const item = cachedItems.find((i) => i.strategy === strategy && i.key === key);
+export function getLabelByKey(userId: number, strategy: Strategy, key: string): string {
+  const item = userItems(userId).find((i) => i.strategy === strategy && i.key === key);
   return item?.label ?? key;
 }
 
@@ -123,8 +135,8 @@ export interface CachedChecklist {
   ОЖИДАЮ: Array<{ key: string; label: string }>;
 }
 
-export function getChecklistForStrategy(strategy: Strategy): CachedChecklist {
-  const items = cachedItems.filter((i) => i.strategy === strategy);
+export function getChecklistForStrategy(userId: number, strategy: Strategy): CachedChecklist {
+  const items = userItems(userId).filter((i) => i.strategy === strategy);
   return {
     ПРЕДПОСЫЛКИ: items.filter((i) => i.itemType === 'plus').map(({ key, label }) => ({ key, label })),
     МИНУСЫ: items.filter((i) => i.itemType === 'minus').map(({ key, label }) => ({ key, label })),
@@ -138,23 +150,24 @@ export function getAllGroups(): ChecklistGroup[] {
   return cachedGroups;
 }
 
-export function getGroupsWithItems(): ChecklistGroupWithItems[] {
+export function getGroupsWithItems(userId: number): ChecklistGroupWithItems[] {
+  const items = userItems(userId);
   return cachedGroups.map((g) => ({
     ...g,
-    items: cachedItems.filter((i) => i.groupId === g.id),
+    items: items.filter((i) => i.groupId === g.id),
   }));
 }
 
-export function getItemsByGroupId(groupId: number): ChecklistItemPublic[] {
-  return cachedItems.filter((i) => i.groupId === groupId);
+export function getItemsByGroupId(userId: number, groupId: number): ChecklistItemPublic[] {
+  return userItems(userId).filter((i) => i.groupId === groupId);
 }
 
-export function getItemsByStrategy(strategy: Strategy): ChecklistItemPublic[] {
-  return cachedItems.filter((i) => i.strategy === strategy);
+export function getItemsByStrategy(userId: number, strategy: Strategy): ChecklistItemPublic[] {
+  return userItems(userId).filter((i) => i.strategy === strategy);
 }
 
-export function getAllItems(): ChecklistItemPublic[] {
-  return cachedItems;
+export function getAllItems(userId: number): ChecklistItemPublic[] {
+  return userItems(userId);
 }
 
 // ── Groups CRUD ───────────────────────────────────────────────────────────────
@@ -202,7 +215,10 @@ export async function deleteGroup(id: number): Promise<void> {
 
 // ── Items CRUD ────────────────────────────────────────────────────────────────
 
-export async function createItem(input: CreateChecklistItemInput): Promise<ChecklistItemPublic> {
+export async function createItem(
+  userId: number,
+  input: CreateChecklistItemInput,
+): Promise<ChecklistItemPublic> {
   const { groupId, itemType, key, label, position = 0 } = input;
 
   // Resolve strategy name from group
@@ -210,10 +226,10 @@ export async function createItem(input: CreateChecklistItemInput): Promise<Check
   if (!group) throw new Error(`Checklist group #${groupId} not found`);
 
   const result = await pool.query<ItemRow>(
-    `INSERT INTO checklist_items (group_id, strategy, item_type, key, label, position)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO checklist_items (group_id, strategy, item_type, key, label, position, user_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      RETURNING *`,
-    [groupId, group.name, itemType, key, label, position],
+    [groupId, group.name, itemType, key, label, position, userId],
   );
   const row = result.rows[0];
   if (!row) throw new Error('createItem: no row returned');
@@ -222,11 +238,12 @@ export async function createItem(input: CreateChecklistItemInput): Promise<Check
 }
 
 export async function updateItem(
+  userId: number,
   id: number,
   input: UpdateChecklistItemInput,
 ): Promise<ChecklistItemPublic> {
   const updates: string[] = ['updated_at = NOW()'];
-  const values: unknown[] = [id];
+  const values: unknown[] = [id, userId];
 
   if (input.label !== undefined) {
     values.push(input.label);
@@ -238,7 +255,7 @@ export async function updateItem(
   }
 
   const result = await pool.query<ItemRow>(
-    `UPDATE checklist_items SET ${updates.join(', ')} WHERE id = $1 RETURNING *`,
+    `UPDATE checklist_items SET ${updates.join(', ')} WHERE id = $1 AND user_id = $2 RETURNING *`,
     values,
   );
   const row = result.rows[0];
@@ -247,8 +264,23 @@ export async function updateItem(
   return mapItem(row);
 }
 
-export async function deleteItem(id: number): Promise<void> {
-  const result = await pool.query(`DELETE FROM checklist_items WHERE id = $1`, [id]);
+export async function deleteItem(userId: number, id: number): Promise<void> {
+  const result = await pool.query(
+    `DELETE FROM checklist_items WHERE id = $1 AND user_id = $2`,
+    [id, userId],
+  );
   if (result.rowCount === 0) throw new Error(`Checklist item #${id} not found`);
   refreshCache();
+}
+
+/** Gives a new user their own editable copy of another user's checklist */
+export async function copyItems(fromUserId: number, toUserId: number): Promise<void> {
+  await pool.query(
+    `INSERT INTO checklist_items (group_id, strategy, item_type, key, label, position, user_id)
+     SELECT group_id, strategy, item_type, key, label, position, $2
+     FROM checklist_items WHERE user_id = $1
+     ON CONFLICT (user_id, strategy, key) DO NOTHING`,
+    [fromUserId, toUserId],
+  );
+  await loadCache();
 }

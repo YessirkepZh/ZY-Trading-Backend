@@ -1,6 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { claudeService } from '../../ai';
 import { storageService } from '../../storage';
+import { currentUser } from '../../auth';
 import * as dealService from '../dealService';
 import { UpdateDealSchema } from '../schemas';
 
@@ -18,8 +19,9 @@ export async function updateDealHandler(
   }
 
   const { id, status, closePrice, dealResult, screenshot } = parsed.data;
+  const userId = currentUser(request).id;
 
-  const deal = await dealService.getDealById(id);
+  const deal = await dealService.getDealById(userId, id);
   if (!deal) {
     reply.status(404).send({ success: false, error: `Deal #${id} not found` });
     return;
@@ -68,7 +70,7 @@ export async function updateDealHandler(
     }
 
     // Reload deal for Claude analysis
-    const closedDeal = await dealService.getDealById(id);
+    const closedDeal = await dealService.getDealById(userId, id);
     if (closedDeal) {
       try {
         const statsResult = await claudeService.analyzeClosedDeal(closedDeal);

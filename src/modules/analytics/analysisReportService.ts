@@ -15,6 +15,7 @@ function mapRow(row: Record<string, unknown>, includeHtml = false): AnalysisRepo
 }
 
 export async function saveReport(params: {
+  userId:      number;
   periodFrom:  string;
   periodTo:    string;
   dealsCount:  number;
@@ -24,8 +25,8 @@ export async function saveReport(params: {
 }): Promise<number> {
   const result = await pool.query<{ id: number }>(`
     INSERT INTO analysis_reports
-      (period_from, period_to, deals_count, metrics, content_html, summary)
-    VALUES ($1, $2, $3, $4, $5, $6)
+      (period_from, period_to, deals_count, metrics, content_html, summary, user_id)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
     RETURNING id
   `, [
     params.periodFrom,
@@ -34,37 +35,40 @@ export async function saveReport(params: {
     JSON.stringify(params.metrics),
     params.contentHtml,
     params.summary,
+    params.userId,
   ]);
   const row = result.rows[0];
   if (!row) throw new Error('saveReport: no row returned');
   return row.id;
 }
 
-export async function getReports(limit = 20): Promise<AnalysisReport[]> {
+export async function getReports(userId: number, limit = 20): Promise<AnalysisReport[]> {
   const { rows } = await pool.query<Record<string, unknown>>(`
     SELECT id, period_from, period_to, deals_count,
            metrics, summary, created_at
     FROM analysis_reports
+    WHERE user_id = $1
     ORDER BY created_at DESC
-    LIMIT $1
-  `, [limit]);
+    LIMIT $2
+  `, [userId, limit]);
 
   return rows.map(row => mapRow(row));
 }
 
-export async function getReportById(id: number): Promise<AnalysisReport | null> {
+export async function getReportById(userId: number, id: number): Promise<AnalysisReport | null> {
   const { rows } = await pool.query<Record<string, unknown>>(`
-    SELECT * FROM analysis_reports WHERE id = $1
-  `, [id]);
+    SELECT * FROM analysis_reports WHERE id = $1 AND user_id = $2
+  `, [id, userId]);
   return rows[0] ? mapRow(rows[0], true) : null;
 }
 
-export async function getLatestReport(): Promise<AnalysisReport | null> {
+export async function getLatestReport(userId: number): Promise<AnalysisReport | null> {
   const { rows } = await pool.query<Record<string, unknown>>(`
     SELECT id, period_from, period_to, deals_count,
            metrics, summary, created_at
     FROM analysis_reports
+    WHERE user_id = $1
     ORDER BY created_at DESC LIMIT 1
-  `);
+  `, [userId]);
   return rows[0] ? mapRow(rows[0], false) : null;
 }

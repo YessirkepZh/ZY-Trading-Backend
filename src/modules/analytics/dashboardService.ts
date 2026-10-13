@@ -26,9 +26,9 @@ function mapRowToClosedDeal(row: Record<string, unknown>): ClosedDealRow {
   };
 }
 
-export async function getDashboardStats(): Promise<DashboardStats> {
+export async function getDashboardStats(userId: number): Promise<DashboardStats> {
   const [closedResult, checklistResult, recentDeals] = await Promise.all([
-    pool.query<Record<string, unknown>>(CLOSED_DEALS_QUERY),
+    pool.query<Record<string, unknown>>(CLOSED_DEALS_QUERY, [userId]),
     pool.query<{
       item_key: string;
       item_type: string;
@@ -36,12 +36,12 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       in_wins: string;
       in_losses: string;
       total: string;
-    }>(CHECKLIST_STATS_QUERY),
-    dealService.getDeals({ limit: RECENT_DEALS_LIMIT }),
+    }>(CHECKLIST_STATS_QUERY, [userId]),
+    dealService.getDeals(userId, { limit: RECENT_DEALS_LIMIT }),
   ]);
 
   const closedDeals = closedResult.rows.map(mapRowToClosedDeal);
-  const stats = computeDashboardFromClosedDeals(closedDeals, checklistResult.rows);
+  const stats = computeDashboardFromClosedDeals(userId, closedDeals, checklistResult.rows);
 
   return { ...stats, recentDeals };
 }

@@ -38,6 +38,7 @@ export interface DealPayload {
 
 export interface Deal {
   id: number;
+  userId: number;
   ticker: string;
   marketType: MarketType;
   strategy: Strategy;

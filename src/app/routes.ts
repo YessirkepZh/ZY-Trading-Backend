@@ -1,13 +1,15 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply, FastifyError } from 'fastify';
 import { registerAuth } from '../modules/auth';
 import { registerDealRoutes } from '../modules/deals';
-import { registerChecklistRoutes } from '../modules/checklists';
+import { copyChecklistItems, registerChecklistRoutes } from '../modules/checklists';
 import { registerAnalyticsRoutes } from '../modules/analytics';
 import { registerMarketRoutes } from '../modules/market';
 import { notifyNewDeal, registerTelegramRoutes } from '../modules/telegram';
 
 export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
-  registerAuth(fastify);
+  registerAuth(fastify, {
+    onUserCreated: (userId, invitedBy) => copyChecklistItems(invitedBy, userId),
+  });
 
   // Error handler
   fastify.setErrorHandler((error: FastifyError, _request: FastifyRequest, reply: FastifyReply) => {

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { FastifyRequest, FastifyReply } from 'fastify';
+import { currentUser } from '../../auth';
 import * as svc from '../checklistItemService';
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
@@ -40,7 +41,7 @@ export async function createChecklistItemHandler(
     return;
   }
   try {
-    const item = await svc.createItem(parsed.data);
+    const item = await svc.createItem(currentUser(request).id, parsed.data);
     reply.status(201).send({ success: true, item });
   } catch (err) {
     request.log.error({ err }, 'createChecklistItem failed');
@@ -67,7 +68,7 @@ export async function updateChecklistItemHandler(
     return;
   }
   try {
-    const item = await svc.updateItem(id, parsed.data);
+    const item = await svc.updateItem(currentUser(request).id, id, parsed.data);
     reply.send({ success: true, item });
   } catch (err) {
     request.log.error({ err }, 'updateChecklistItem failed');
@@ -86,7 +87,7 @@ export async function deleteChecklistItemHandler(
     return;
   }
   try {
-    await svc.deleteItem(id);
+    await svc.deleteItem(currentUser(request).id, id);
     reply.send({ success: true });
   } catch (err) {
     request.log.error({ err }, 'deleteChecklistItem failed');

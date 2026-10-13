@@ -1,6 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { storageService } from '../../storage';
 import { UploadScreenshotSchema } from '../schemas';
+import { currentUser } from '../../auth';
 import * as dealService from '../dealService';
 
 export async function uploadScreenshotHandler(
@@ -15,7 +16,7 @@ export async function uploadScreenshotHandler(
 
   const { dealId, type, screenshot } = parsed.data;
 
-  const deal = await dealService.getDealById(dealId);
+  const deal = await dealService.getDealById(currentUser(request).id, dealId);
   if (!deal) {
     reply.status(404).send({ success: false, error: `Deal #${dealId} not found` });
     return;

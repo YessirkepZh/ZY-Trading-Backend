@@ -1,4 +1,5 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
+import { currentUser } from '../../auth';
 import * as dealService from '../dealService';
 import { AddDealCommentSchema } from '../schemas';
 
@@ -18,12 +19,13 @@ export async function addDealCommentHandler(
     return;
   }
 
-  const deal = await dealService.getDealById(id);
+  const userId = currentUser(request).id;
+  const deal = await dealService.getDealById(userId, id);
   if (!deal) {
     reply.status(404).send({ success: false, error: `Deal #${id} not found` });
     return;
   }
 
-  const comment = await dealService.addDealComment(id, parsed.data.text);
+  const comment = await dealService.addDealComment(userId, id, parsed.data.text);
   reply.status(201).send({ success: true, comment });
 }

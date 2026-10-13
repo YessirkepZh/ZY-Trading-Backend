@@ -1,5 +1,6 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { GetDealsSchema } from '../schemas';
+import { currentUser } from '../../auth';
 import * as dealService from '../dealService';
 
 export async function getDealsHandler(
@@ -13,6 +14,6 @@ export async function getDealsHandler(
   }
 
   const { status, strategy, limit, offset } = parsed.data;
-  const deals = await dealService.getDeals({ status, strategy, limit, offset });
+  const deals = await dealService.getDeals(currentUser(request).id, { status, strategy, limit, offset });
   reply.send({ success: true, deals, count: deals.length });
 }

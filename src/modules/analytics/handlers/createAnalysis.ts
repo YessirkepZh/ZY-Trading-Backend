@@ -1,6 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { claudeService } from '../../ai';
+import { currentUser } from '../../auth';
 import * as analyticsService from '../analyticsService';
 import * as analysisReportService from '../analysisReportService';
 
@@ -21,8 +22,9 @@ export async function createAnalysisHandler(
     }
 
     const { periodFrom, periodTo } = parsed.data;
+    const userId = currentUser(request).id;
 
-    const { metrics } = await analyticsService.computeMetrics(periodFrom, periodTo);
+    const { metrics } = await analyticsService.computeMetrics(userId, periodFrom, periodTo);
 
     if (metrics.closedDeals < 3) {
       reply.status(400).send({
@@ -37,6 +39,7 @@ export async function createAnalysisHandler(
     });
 
     const id = await analysisReportService.saveReport({
+      userId,
       periodFrom, periodTo,
       dealsCount: metrics.closedDeals,
       metrics,

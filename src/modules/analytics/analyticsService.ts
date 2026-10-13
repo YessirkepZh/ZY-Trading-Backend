@@ -6,6 +6,7 @@ function round2(n: number): number {
 }
 
 export async function computeMetrics(
+  userId: number,
   periodFrom: string,
   periodTo: string,
 ): Promise<{ metrics: AnalysisMetrics; deals: Record<string, unknown>[] }> {
@@ -18,11 +19,12 @@ export async function computeMetrics(
       payload, calc_result,
       created_at, closed_at, updated_at, entered_at
     FROM deals
-    WHERE status = 'closed'
+    WHERE user_id = $3
+      AND status = 'closed'
       AND created_at >= $1
       AND created_at <= $2
     ORDER BY created_at ASC
-  `, [periodFrom, periodTo + ' 23:59:59']);
+  `, [periodFrom, periodTo + ' 23:59:59', userId]);
 
   const closed = deals.filter(d => d['deal_result']);
   const wins   = closed.filter(d => d['deal_result'] === 'win');

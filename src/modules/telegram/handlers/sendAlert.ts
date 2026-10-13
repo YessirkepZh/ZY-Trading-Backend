@@ -1,5 +1,6 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
+import { currentUser } from '../../auth';
 import * as telegramService from '../telegramService';
 
 const SendAlertSchema = z.object({
@@ -16,11 +17,16 @@ export async function sendAlertHandler(
     return;
   }
 
+  let sent: boolean;
   try {
-    await telegramService.sendAlert(parsed.data.text);
+    sent = await telegramService.sendAlert(currentUser(request).id, parsed.data.text);
   } catch (err) {
     request.log.warn({ err }, 'Telegram sendAlert failed');
     reply.status(502).send({ success: false, error: 'Telegram unavailable' });
+    return;
+  }
+  if (!sent) {
+    reply.status(409).send({ success: false, error: 'Telegram is not linked to this account' });
     return;
   }
   reply.send({ success: true });

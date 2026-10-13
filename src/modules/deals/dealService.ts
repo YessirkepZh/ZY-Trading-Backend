@@ -8,6 +8,7 @@ import type { CalculationResult, Deal, DealComment, DealPayload, DealStatus } fr
 function mapRowToDeal(row: Record<string, unknown>): Deal {
   return {
     id: row['id'] as number,
+    userId: row['user_id'] as number,
     ticker: row['ticker'] as string,
     marketType: row['market_type'] as Deal['marketType'],
     strategy: row['strategy'] as Deal['strategy'],
@@ -34,14 +35,15 @@ function mapRowToDeal(row: Record<string, unknown>): Deal {
 // ── CRUD ──────────────────────────────────────────────────────────────────────
 
 export async function createDeal(
+  userId: number,
   payload: DealPayload,
   calcResult: CalculationResult,
 ): Promise<number> {
   const result = await pool.query<{ id: number }>(
     `INSERT INTO deals
        (ticker, market_type, strategy, direction, entry_raw, status, payload, calc_result,
-        checklist_snapshot, pass_road, atr, atr_percent)
-     VALUES ($1,$2,$3,$4,$5,'created',$6,$7,$8,$9,$10,$11)
+        checklist_snapshot, pass_road, atr, atr_percent, user_id)
+     VALUES ($1,$2,$3,$4,$5,'created',$6,$7,$8,$9,$10,$11,$12)
      RETURNING id`,
     [
       payload.ticker,
@@ -55,6 +57,7 @@ export async function createDeal(
       calcResult.passRoad,
       calcResult.atr,
       calcResult.atrPercent ?? null,
+      userId,
     ],
   );
 
@@ -155,24 +158,24 @@ export async function setClaudeStats(id: number, result: ClaudeStatsResult): Pro
   );
 }
 
-export async function getDealById(id: number): Promise<Deal | null> {
+export async function getDealById(userId: number, id: number): Promise<Deal | null> {
   const result = await pool.query<Record<string, unknown>>(
-    'SELECT * FROM deals WHERE id = $1',
-    [id],
+    'SELECT * FROM deals WHERE id = $1 AND user_id = $2',
+    [id, userId],
   );
   const row = result.rows[0];
   return row ? mapRowToDeal(row) : null;
 }
 
-export async function getDeals(filters: {
+export async function getDeals(userId: number, filters: {
   status?: DealStatus;
   strategy?: Strategy;
   limit?: number;
   offset?: number;
 } = {}): Promise<Deal[]> {
   const { status, strategy, limit = 20, offset = 0 } = filters;
-  const conditions: string[] = [];
-  const values: unknown[] = [];
+  const values: unknown[] = [userId];
+  const conditions: string[] = ['user_id = $1'];
 
   if (status) {
     values.push(status);
@@ -183,7 +186,7 @@ export async function getDeals(filters: {
     conditions.push(`strategy = $${values.length}`);
   }
 
-  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  const where = `WHERE ${conditions.join(' AND ')}`;
   values.push(limit, offset);
 
   const result = await pool.query<Record<string, unknown>>(
@@ -195,15 +198,16 @@ export async function getDeals(filters: {
 }
 
 export async function checkDuplicate(
+  userId: number,
   ticker: string,
   entryRaw: number,
   direction: string,
 ): Promise<boolean> {
   const result = await pool.query<{ count: string }>(
     `SELECT COUNT(*) as count FROM deals
-     WHERE ticker = $1 AND entry_raw = $2 AND direction = $3
+     WHERE user_id = $4 AND ticker = $1 AND entry_raw = $2 AND direction = $3
        AND created_at > NOW() - INTERVAL '30 seconds'`,
-    [ticker, entryRaw, direction],
+    [ticker, entryRaw, direction, userId],
   );
   const row = result.rows[0];
   return Number(row?.count ?? 0) > 0;
@@ -228,10 +232,14 @@ export async function getDealComments(dealId: number): Promise<DealComment[]> {
   return result.rows.map(mapRowToComment);
 }
 
-export async function addDealComment(dealId: number, text: string): Promise<DealComment> {
+export async function addDealComment(
+  userId: number,
+  dealId: number,
+  text: string,
+): Promise<DealComment> {
   const result = await pool.query<Record<string, unknown>>(
-    `INSERT INTO deal_comments (deal_id, text) VALUES ($1, $2) RETURNING *`,
-    [dealId, text],
+    `INSERT INTO deal_comments (deal_id, text, user_id) VALUES ($1, $2, $3) RETURNING *`,
+    [dealId, text, userId],
   );
   const row = result.rows[0];
   if (!row) throw new Error('addDealComment: no row returned');

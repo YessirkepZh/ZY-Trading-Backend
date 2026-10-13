@@ -276,6 +276,7 @@ function buildMarketStats(deals: ClosedDealRow[]): DashboardStats['byMarket'] {
 }
 
 export function buildChecklistTop(
+  userId: number,
   rows: Array<{
     item_key: string;
     item_type: string;
@@ -294,7 +295,7 @@ export function buildChecklistTop(
 
   return sorted.slice(0, TOP_CHECKLIST_LIMIT).map((row) => ({
     key: row.item_key,
-    label: getLabelByKey(row.strategy as Strategy, row.item_key),
+    label: getLabelByKey(userId, row.strategy as Strategy, row.item_key),
     type: row.item_type as ChecklistStatItem['type'],
     strategy: row.strategy as Strategy,
     inWins: Number(row.in_wins),
@@ -304,6 +305,7 @@ export function buildChecklistTop(
 }
 
 export function computeDashboardFromClosedDeals(
+  userId: number,
   deals: ClosedDealRow[],
   checklistRows: Array<{
     item_key: string;
@@ -341,8 +343,8 @@ export function computeDashboardFromClosedDeals(
     dealsPerDay,
     profitSumDaily,
     dailyDrawdown,
-    topChecklistInWins: buildChecklistTop(checklistRows, 'wins'),
-    topChecklistInLoss: buildChecklistTop(checklistRows, 'losses'),
+    topChecklistInWins: buildChecklistTop(userId, checklistRows, 'wins'),
+    topChecklistInLoss: buildChecklistTop(userId, checklistRows, 'losses'),
   };
 }
 
@@ -353,7 +355,7 @@ export const CHECKLIST_STATS_QUERY = `
          COUNT(*) AS total
   FROM checklist_stats cs
   INNER JOIN deals d ON d.id = cs.deal_id
-  WHERE d.status = 'closed' AND d.closed_at IS NOT NULL
+  WHERE d.user_id = $1 AND d.status = 'closed' AND d.closed_at IS NOT NULL
   GROUP BY cs.item_key, cs.item_type, cs.strategy
   HAVING COUNT(*) >= ${MIN_CHECKLIST_TOTAL}
 `;
@@ -362,6 +364,6 @@ export const CLOSED_DEALS_QUERY = `
   SELECT id, strategy, market_type, direction, deal_result, close_price,
          calc_result, payload, pass_road, closed_at
   FROM deals
-  WHERE status = 'closed' AND closed_at IS NOT NULL
+  WHERE user_id = $1 AND status = 'closed' AND closed_at IS NOT NULL
   ORDER BY closed_at ASC
 `;

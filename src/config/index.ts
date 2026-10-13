@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -25,6 +26,16 @@ function parseCorsOrigins(): string[] | true {
   return true;
 }
 
+function resolveJwtSecret(): string {
+  const secret = process.env['JWT_SECRET']?.trim();
+  if (secret) return secret;
+  if ((process.env['NODE_ENV'] || 'development') === 'production') {
+    throw new Error('Missing required env variable: JWT_SECRET');
+  }
+  console.warn('JWT_SECRET is not set — using an ephemeral secret, sessions reset on restart');
+  return randomBytes(32).toString('hex');
+}
+
 // Polling with the same token from two instances steals updates from production
 const botEnabled = process.env['BOT_ENABLED'] !== 'false';
 
@@ -32,8 +43,15 @@ export const config = {
   port: Number(process.env['PORT']) || 3001,
   nodeEnv: process.env['NODE_ENV'] || 'development',
   corsOrigins: parseCorsOrigins(),
-  // Empty value disables API key auth (keeps old clients working during rollout)
+  // Legacy shared key, acts as the owner account. Empty value disables it
   apiKey: process.env['API_KEY']?.trim() ?? '',
+
+  auth: {
+    jwtSecret: resolveJwtSecret(),
+    accessTokenTtlSec: 15 * 60,
+    refreshTokenTtlSec: 30 * 24 * 60 * 60,
+    inviteTtlSec: 7 * 24 * 60 * 60,
+  },
 
   telegram: {
     enabled: botEnabled,

@@ -1,6 +1,7 @@
 import type TelegramBot from 'node-telegram-bot-api';
 import type { ChecklistSnapshot, Strategy } from '../../shared/trading';
 import type { ClaudeCheckResult } from '../ai';
+import { findOwner, findUserById } from '../auth';
 import { getLabelByKey } from '../checklists';
 import { calculationService, type CalculationResult, type Deal } from '../deals';
 import {
@@ -10,11 +11,12 @@ import {
 import { getDealActionKeyboard } from './keyboards';
 
 let botInstance: TelegramBot | null = null;
-let chatIdInstance: number | null = null;
+// Chat of the ALLOWED_USERS owner, used until the owner links a telegram_id
+let legacyChatId: number | null = null;
 
 export function initTelegramService(bot: TelegramBot, chatId: number): void {
   botInstance = bot;
-  chatIdInstance = chatId;
+  legacyChatId = chatId;
 }
 
 function getBot(): TelegramBot {
@@ -22,21 +24,24 @@ function getBot(): TelegramBot {
   return botInstance;
 }
 
-function getChatId(): number {
-  if (chatIdInstance === null) throw new Error('Telegram chatId not set');
-  return chatIdInstance;
+async function resolveChatId(userId: number): Promise<number | null> {
+  const user = await findUserById(userId);
+  if (user?.telegramId) return user.telegramId;
+  const owner = await findOwner();
+  return owner?.id === userId ? legacyChatId : null;
 }
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 
 function formatChecklistLine(
+  userId: number,
   strategy: Strategy,
   keys: string[],
   icon: string,
   label: string,
 ): string {
   if (keys.length === 0) return '';
-  const items = keys.map((k) => getLabelByKey(strategy, k)).join(', ');
+  const items = keys.map((k) => getLabelByKey(userId, strategy, k)).join(', ');
   return `${icon} *${label}:* ${items}`;
 }
 
@@ -46,7 +51,7 @@ export function formatScenarioMessage(
   claudeCheck: ClaudeCheckResult,
   checklist?: ChecklistSnapshot,
 ): string {
-  const { ticker, marketType, strategy, direction, entryRaw, id } = deal;
+  const { ticker, marketType, strategy, direction, entryRaw, id, userId } = deal;
   const passRoadStr = calcResult.passRoad !== null
     ? `${calcResult.passRoad.toFixed()}%`
     : 'н/д';
@@ -107,9 +112,9 @@ export function formatScenarioMessage(
   lines.push(`_${formatClaudeReasoningRu(claudeCheck)}_`);
 
   if (checklist && strategy) {
-    const plusLine = formatChecklistLine(strategy, checklist.plus, '✅', 'ПРЕДПОСЫЛКИ');
-    const minusLine = formatChecklistLine(strategy, checklist.minus, '❌', 'МИНУСЫ');
-    const waitLine = formatChecklistLine(strategy, checklist.wait, '⏳', 'ОЖИДАЮ');
+    const plusLine = formatChecklistLine(userId, strategy, checklist.plus, '✅', 'ПРЕДПОСЫЛКИ');
+    const minusLine = formatChecklistLine(userId, strategy, checklist.minus, '❌', 'МИНУСЫ');
+    const waitLine = formatChecklistLine(userId, strategy, checklist.wait, '⏳', 'ОЖИДАЮ');
 
     if (plusLine || minusLine || waitLine) {
       lines.push('');
@@ -136,7 +141,8 @@ export async function sendScenario(
   keyboard: TelegramBot.InlineKeyboardMarkup,
 ): Promise<void> {
   const bot = getBot();
-  const chatId = getChatId();
+  const chatId = await resolveChatId(deal.userId);
+  if (chatId === null) return;
   const text = formatScenarioMessage(deal, calcResult, claudeCheck, checklist);
 
   await bot.sendMessage(chatId, text, {
@@ -154,12 +160,15 @@ export async function notifyNewDeal(
   await sendScenario(deal, calcResult, claudeCheck, checklist, getDealActionKeyboard(deal.id));
 }
 
-export async function sendText(text: string): Promise<void> {
+/** Returns false when the user has no linked Telegram chat */
+export async function sendText(userId: number, text: string): Promise<boolean> {
   const bot = getBot();
-  const chatId = getChatId();
+  const chatId = await resolveChatId(userId);
+  if (chatId === null) return false;
   await bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
+  return true;
 }
 
-export async function sendAlert(text: string): Promise<void> {
-  return sendText(`🔔 ${text}`);
+export async function sendAlert(userId: number, text: string): Promise<boolean> {
+  return sendText(userId, `🔔 ${text}`);
 }

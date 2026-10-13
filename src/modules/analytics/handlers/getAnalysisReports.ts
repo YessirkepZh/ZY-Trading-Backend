@@ -1,11 +1,12 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
+import { currentUser } from '../../auth';
 import * as analysisReportService from '../analysisReportService';
 
 export async function getAnalysisReportsHandler(
-  _request: FastifyRequest,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
-  const reports = await analysisReportService.getReports();
+  const reports = await analysisReportService.getReports(currentUser(request).id);
   reply.send({ success: true, reports });
 }
 
@@ -18,7 +19,7 @@ export async function getAnalysisReportByIdHandler(
     reply.status(400).send({ success: false, error: 'Invalid id' });
     return;
   }
-  const report = await analysisReportService.getReportById(id);
+  const report = await analysisReportService.getReportById(currentUser(request).id, id);
   if (!report) {
     reply.status(404).send({ success: false, error: `Report #${id} not found` });
     return;
@@ -27,10 +28,10 @@ export async function getAnalysisReportByIdHandler(
 }
 
 export async function getLatestAnalysisHandler(
-  _request: FastifyRequest,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
-  const report = await analysisReportService.getLatestReport();
+  const report = await analysisReportService.getLatestReport(currentUser(request).id);
   if (!report) {
     reply.status(404).send({ success: false, error: 'No analysis reports found' });
     return;

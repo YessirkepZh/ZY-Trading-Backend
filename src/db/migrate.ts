@@ -11,7 +11,11 @@ const migrations = [
   '006_create_checklist_items.sql',
   '007_add_checklist_groups.sql',
   '008_create_deal_comments.sql',
+  '009_create_users_auth.sql',
 ];
+
+// Migrations that existed before tracking was introduced — the only ones bootstrap may mark as applied
+const PRE_TRACKING_MIGRATIONS = migrations.slice(0, migrations.indexOf('008_create_deal_comments.sql') + 1);
 
 async function migrate(): Promise<void> {
   console.log('Running migrations...');
@@ -41,7 +45,7 @@ async function migrate(): Promise<void> {
     `);
 
     if (Number(col[0]?.count) > 0) {
-      for (const file of migrations) {
+      for (const file of PRE_TRACKING_MIGRATIONS) {
         await pool.query(
           'INSERT INTO schema_migrations (name) VALUES ($1) ON CONFLICT DO NOTHING',
           [file],
