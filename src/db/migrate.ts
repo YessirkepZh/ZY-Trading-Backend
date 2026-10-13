@@ -13,6 +13,7 @@ const migrations = [
   '008_create_deal_comments.sql',
   '009_create_users_auth.sql',
   '010_device_limits.sql',
+  '011_focus_screenshot.sql',
 ];
 
 // Migrations that existed before tracking was introduced — the only ones bootstrap may mark as applied

@@ -3,6 +3,9 @@ import type { ChecklistSnapshot, Direction, MarketType, Strategy } from '../../s
 
 export type DealStatus = 'created' | 'notified' | 'entered' | 'closed' | 'missed';
 
+/** focus = close-up of the entry timeframe taken together with the setup screenshot */
+export type ScreenshotType = 'setup' | 'entry' | 'close' | 'focus';
+
 export interface CalculationResult {
   atr: number;
   atrPercent: number | null;
@@ -57,6 +60,7 @@ export interface Deal {
   screenshotSetup?: string;
   screenshotEntry?: string;
   screenshotClose?: string;
+  screenshotFocus?: string;
   createdAt: Date;
   updatedAt: Date;
 }

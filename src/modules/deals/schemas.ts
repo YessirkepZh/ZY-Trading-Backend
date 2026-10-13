@@ -24,8 +24,33 @@ export const CreateNoteSchema = z.object({
     .optional(),
   inPlay: z.boolean().default(false),
   screenshot: z.string().optional(),       // base64 PNG from Extension
+  screenshotFocus: z.string().optional(),  // base64 PNG: close-up of the entry timeframe
+  chart: z
+    .object({
+      panes: z
+        .array(
+          z.object({
+            symbol: z.string().max(60),
+            interval: z.string().max(10),
+            annotated: z.boolean(),
+            entry: z.boolean(),
+          }),
+        )
+        .min(1)
+        .max(16),
+    })
+    .optional(),
   atrOverride: z.number().positive().optional(),          // ATR from TradingView label
   passRoadOverride: z.number().min(0).max(1000).optional(), // passRoad % from TradingView label
+});
+
+// Same inputs as createNote, minus everything that only matters once the deal is saved
+export const PreviewSetupSchema = CreateNoteSchema.omit({
+  checklist: true,
+  inPlay: true,
+  screenshot: true,
+  screenshotFocus: true,
+  chart: true,
 });
 
 export const UpdateDealSchema = z.object({
@@ -56,6 +81,7 @@ export const AddDealCommentSchema = z.object({
 });
 
 export type CreateNoteInput = z.infer<typeof CreateNoteSchema>;
+export type PreviewSetupInput = z.infer<typeof PreviewSetupSchema>;
 export type UpdateDealInput = z.infer<typeof UpdateDealSchema>;
 export type GetDealsInput = z.infer<typeof GetDealsSchema>;
 export type AddDealCommentInput = z.infer<typeof AddDealCommentSchema>;

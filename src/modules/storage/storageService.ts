@@ -20,7 +20,7 @@ const s3 = new S3Client({
 export async function uploadScreenshot(
   base64: string,
   dealId: number,
-  type: 'setup' | 'entry' | 'close',
+  type: 'setup' | 'entry' | 'close' | 'focus',
 ): Promise<string> {
   const data = base64.replace(/^data:image\/\w+;base64,/, '');
   const buffer = Buffer.from(data, 'base64');

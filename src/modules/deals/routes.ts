@@ -6,12 +6,14 @@ import { getDealsHandler } from './handlers/getDeals';
 import { getDealByIdHandler } from './handlers/getDealById';
 import { addDealCommentHandler } from './handlers/addDealComment';
 import { uploadScreenshotHandler } from './handlers/uploadScreenshot';
+import { previewSetupHandler } from './handlers/previewSetup';
 
 export interface DealRouteDeps {
   notifier: DealNotifier;
 }
 
 export function registerDealRoutes(fastify: FastifyInstance, deps: DealRouteDeps): void {
+  fastify.post('/api/previewSetup', previewSetupHandler);
   fastify.post('/api/createNote', createNoteHandler(deps.notifier));
   fastify.post('/api/updateDeal', updateDealHandler);
   fastify.get('/api/deals', getDealsHandler);

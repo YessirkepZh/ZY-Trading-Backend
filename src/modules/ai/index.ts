@@ -1,2 +1,2 @@
 export * as claudeService from './claudeService';
-export type { ClaudeCheckResult, ClaudeStatsResult } from './types';
+export type { ChartPane, ClaudeCheckResult, ClaudeStatsResult } from './types';

@@ -8,6 +8,17 @@ export interface ClaudeCheckResult {
   checkedAt: Date;
 }
 
+/** One TradingView chart from the screenshot layout, as reported by the extension */
+export interface ChartPane {
+  symbol: string;
+  /** TradingView resolution: "5", "60", "1D", "1W" */
+  interval: string;
+  /** Trade levels are drawn on this pane */
+  annotated: boolean;
+  /** The entry timeframe: full markup and a separate close-up image */
+  entry: boolean;
+}
+
 export interface ClaudeStatsResult {
   summary: string;
   summaryRu: string;

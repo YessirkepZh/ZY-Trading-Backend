@@ -1,7 +1,7 @@
 import { pool } from '../../db/pool';
 import type { Strategy } from '../../shared/trading';
 import type { ClaudeCheckResult, ClaudeStatsResult } from '../ai';
-import type { CalculationResult, Deal, DealComment, DealPayload, DealStatus } from './types';
+import type { CalculationResult, Deal, DealComment, DealPayload, DealStatus, ScreenshotType } from './types';
 
 // ── Row mapper ────────────────────────────────────────────────────────────────
 
@@ -27,6 +27,7 @@ function mapRowToDeal(row: Record<string, unknown>): Deal {
     screenshotSetup: row['screenshot_setup'] as string | undefined,
     screenshotEntry: row['screenshot_entry'] as string | undefined,
     screenshotClose: row['screenshot_close'] as string | undefined,
+    screenshotFocus: row['screenshot_focus'] as string | undefined,
     createdAt: new Date(row['created_at'] as string),
     updatedAt: new Date(row['updated_at'] as string),
   };
@@ -112,7 +113,7 @@ export async function closeDeal(
 
 export async function setScreenshot(
   id: number,
-  type: 'setup' | 'entry' | 'close',
+  type: ScreenshotType,
   url: string,
 ): Promise<void> {
   const column = `screenshot_${type}`;

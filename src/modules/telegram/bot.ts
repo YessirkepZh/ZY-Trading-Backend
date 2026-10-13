@@ -169,6 +169,7 @@ export function initBot(): void {
         marketType: 'crypto',
         strategy: 'Пробой',
         direction,
+        entryRaw,
         calcResult,
         checklist: { plus: [], minus: [], wait: [] },
         ohlcvSummary,

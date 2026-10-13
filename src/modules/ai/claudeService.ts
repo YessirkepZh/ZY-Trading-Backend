@@ -5,7 +5,7 @@ import type { ChecklistSnapshot, Direction, MarketType, Strategy } from '../../s
 import type { AnalysisMetrics } from '../analytics';
 import { getLabelByKey } from '../checklists';
 import type { CalculationResult, Deal } from '../deals';
-import type { ClaudeCheckResult, ClaudeStatsResult } from './types';
+import type { ChartPane, ClaudeCheckResult, ClaudeStatsResult } from './types';
 
 const client = new Anthropic({ apiKey: config.anthropic.apiKey });
 
@@ -114,15 +114,23 @@ async function callClaude(system: string, userMessage: string): Promise<string> 
   });
 }
 
-async function callClaudeWithImage(
+interface CaptionedImage {
+  caption: string;
+  url: string;
+}
+
+async function callClaudeWithImages(
   system: string,
   text: string,
-  imageUrl?: string,
+  images: CaptionedImage[],
 ): Promise<string> {
   return retry(async () => {
-    const content: Anthropic.MessageParam['content'] = imageUrl
+    const content: Anthropic.MessageParam['content'] = images.length > 0
       ? [
-          { type: 'image', source: { type: 'url', url: imageUrl } },
+          ...images.flatMap((image): Anthropic.ContentBlockParam[] => [
+            { type: 'text', text: image.caption },
+            { type: 'image', source: { type: 'url', url: image.url } },
+          ]),
           { type: 'text', text },
         ]
       : text;
@@ -155,6 +163,35 @@ function strategyToEnglish(strategy: Strategy): string {
   return map[strategy];
 }
 
+/** TradingView resolution → human timeframe: "5" → "5m", "240" → "4h", "1D" stays */
+function formatInterval(interval: string): string {
+  if (!/^\d+$/.test(interval)) return interval;
+  const minutes = Number(interval);
+  return minutes % 60 === 0 ? `${minutes / 60}h` : `${minutes}m`;
+}
+
+function describeChartPanes(panes: ChartPane[]): string {
+  const list = panes
+    .map((p) => {
+      const marks = [p.entry && 'entry timeframe', p.annotated && 'levels drawn'].filter(Boolean);
+      return `${formatInterval(p.interval)} ${p.symbol}${marks.length ? ` (${marks.join(', ')})` : ''}`;
+    })
+    .join('; ');
+  return `Screenshot layout, timeframes: ${list}.
+Lines were drawn by the extension from the numbers below, not by the trader:
+gray dashed = level, blue = entry, red = SL, green = TP; shaded zones on the entry timeframe = risk (red) and reward (green).
+Price levels are identical on every timeframe — use higher timeframes for structure, the entry timeframe for the trigger.`;
+}
+
+function formatStopPlan(calcResult: CalculationResult): string {
+  if (calcResult.stopLossByStop === undefined) return '';
+  const takes = [calcResult.takeProfitByStop, calcResult.takeProfitByStop2, calcResult.takeProfitByStop3]
+    .filter((v): v is number => v !== undefined)
+    .join(' / ');
+  return `\nTrader's own stop plan (this is what is drawn on the chart and what the trader executes):
+entry: ${calcResult.entryPriceByStop}, SL: ${calcResult.stopLossByStop}, TP: ${takes}`;
+}
+
 function formatChecklistLabels(userId: number, strategy: Strategy, keys: string[]): string {
   if (keys.length === 0) return 'none';
   return keys.map((k) => getLabelByKey(userId, strategy, k)).join('; ');
@@ -166,12 +203,20 @@ export async function checkSetup(params: {
   marketType: MarketType;
   strategy: Strategy;
   direction: Direction;
+  entryRaw: number;
   calcResult: CalculationResult;
   checklist: ChecklistSnapshot;
   ohlcvSummary: string;
   screenshotUrl?: string;
+  /** Close-up of the entry timeframe pane */
+  focusScreenshotUrl?: string;
+  /** Present only when the extension drew the levels on the screenshot */
+  chartPanes?: ChartPane[];
 }): Promise<ClaudeCheckResult> {
-  const { userId, ticker, marketType, strategy, direction, calcResult, checklist, ohlcvSummary, screenshotUrl } = params;
+  const {
+    userId, ticker, marketType, strategy, direction, entryRaw, calcResult, checklist, ohlcvSummary,
+    screenshotUrl, focusScreenshotUrl, chartPanes,
+  } = params;
 
   const volatilityContext = calcResult.atrPercent != null
     ? calcResult.atrPercent > 5
@@ -190,10 +235,11 @@ ATR%: ${calcResult.atrPercent?.toFixed(2) ?? 'неизвестно'}%
 ATR: ${calcResult.atr}
 passRoad: ${calcResult.passRoad ?? 'n/a'}%
 rangeReserve: ${calcResult.rangeReserve ?? 'n/a'}
+level: ${entryRaw}
 entryPrice: ${calcResult.entryPrice}
 SL: ${calcResult.stopLossDefault}
-TP: ${calcResult.takeProfitDefault}
-
+TP: ${calcResult.takeProfitDefault}${formatStopPlan(calcResult)}
+${chartPanes?.length ? `\n${describeChartPanes(chartPanes)}\n` : ''}
 Checklist (trader evaluation):
 PLUS: ${formatChecklistLabels(userId, strategy, checklist.plus)}
 MINUS: ${formatChecklistLabels(userId, strategy, checklist.minus)}
@@ -203,7 +249,11 @@ Last 10 OHLCV bars:
 ${ohlcvSummary}
 `.trim();
 
-  const text = await callClaudeWithImage(buildCheckSetupSystem(marketType), userMessage, screenshotUrl);
+  const images: CaptionedImage[] = [];
+  if (screenshotUrl) images.push({ caption: 'Setup screenshot (full TradingView layout):', url: screenshotUrl });
+  if (focusScreenshotUrl) images.push({ caption: 'Close-up of the entry timeframe:', url: focusScreenshotUrl });
+
+  const text = await callClaudeWithImages(buildCheckSetupSystem(marketType), userMessage, images);
   const parsed = extractJson(text) as {
     recommendation: 'take' | 'skip' | 'wait';
     confidence: number;
@@ -252,6 +302,10 @@ ${deal.claudeCheckResult ? `Рекомендация Claude при входе: $
   if (deal.screenshotSetup) {
     content.push({ type: 'text', text: 'Скриншот сетапа:' });
     content.push({ type: 'image', source: { type: 'url', url: deal.screenshotSetup } });
+  }
+  if (deal.screenshotFocus) {
+    content.push({ type: 'text', text: 'Крупный план ТФ входа при сетапе:' });
+    content.push({ type: 'image', source: { type: 'url', url: deal.screenshotFocus } });
   }
   if (deal.screenshotEntry) {
     content.push({ type: 'text', text: 'Скриншот входа:' });
