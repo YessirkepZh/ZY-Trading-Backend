@@ -25,14 +25,20 @@ function parseCorsOrigins(): string[] | true {
   return true;
 }
 
+// Polling with the same token from two instances steals updates from production
+const botEnabled = process.env['BOT_ENABLED'] !== 'false';
+
 export const config = {
   port: Number(process.env['PORT']) || 3001,
   nodeEnv: process.env['NODE_ENV'] || 'development',
   corsOrigins: parseCorsOrigins(),
+  // Empty value disables API key auth (keeps old clients working during rollout)
+  apiKey: process.env['API_KEY']?.trim() ?? '',
 
   telegram: {
-    token: required('TELEGRAM_TOKEN'),
-    allowedUsers: required('ALLOWED_USERS').split(',').map(Number),
+    enabled: botEnabled,
+    token: botEnabled ? required('TELEGRAM_TOKEN') : '',
+    allowedUsers: botEnabled ? required('ALLOWED_USERS').split(',').map(Number) : [],
   },
 
   polygon: {

@@ -5,6 +5,9 @@ import * as storageService from '../../services/storageService';
 import * as claudeService from '../../services/claudeService';
 import { pool } from '../../db/pool';
 
+const MAX_CLOSE_DEVIATION_ATR = 5;
+const MAX_CLOSE_DEVIATION_PCT = 0.5;
+
 export async function updateDealHandler(
   request: FastifyRequest,
   reply: FastifyReply,
@@ -31,6 +34,20 @@ export async function updateDealHandler(
       });
       return;
     }
+
+    // Guards against a close price carried over from another ticker
+    const entry = deal.calcResult.entryPrice || deal.entryRaw;
+    const atr = deal.calcResult.atr;
+    const maxDeviation = atr > 0 ? atr * MAX_CLOSE_DEVIATION_ATR : entry * MAX_CLOSE_DEVIATION_PCT;
+    if (Math.abs(closePrice - entry) > maxDeviation) {
+      reply.status(400).send({
+        success: false,
+        error: `⚠️ Цена закрытия ${closePrice} слишком далека от входа ${entry} по ${deal.ticker}. ` +
+               `Проверь, что цена взята с правильного тикера.`,
+      });
+      return;
+    }
+
     await dealService.closeDeal(id, closePrice, dealResult);
 
     // Record checklist stats for analytics

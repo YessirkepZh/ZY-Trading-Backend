@@ -32,7 +32,11 @@ async function main(): Promise<void> {
   await registerRoutes(fastify);
 
   // Start Telegram Bot (polling)
-  initBot();
+  if (config.telegram.enabled) {
+    initBot();
+  } else {
+    fastify.log.warn('Telegram bot disabled (BOT_ENABLED=false)');
+  }
 
   // Start HTTP server
   await fastify.listen({ port: config.port, host: '0.0.0.0' });
