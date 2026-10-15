@@ -88,8 +88,8 @@ export async function updateDealStatus(
   );
 }
 
-export async function setEnteredAt(id: number): Promise<void> {
-  await pool.query('UPDATE deals SET entered_at = NOW() WHERE id = $1', [id]);
+export async function setEnteredAt(id: number, at?: Date): Promise<void> {
+  await pool.query('UPDATE deals SET entered_at = COALESCE($2, NOW()) WHERE id = $1', [id, at ?? null]);
 }
 
 export async function setActualEntry(
@@ -181,19 +181,29 @@ export async function getDealById(userId: number, id: number): Promise<Deal | nu
   return row ? mapRowToDeal(row) : null;
 }
 
+// An order not filled within a few days is a forgotten setup, not a pending one
+const OPEN_SETUP_DAYS = 3;
+
 export async function getDeals(userId: number, filters: {
   status?: DealStatus;
   strategy?: Strategy;
+  open?: boolean;
   limit?: number;
   offset?: number;
 } = {}): Promise<Deal[]> {
-  const { status, strategy, limit = 20, offset = 0 } = filters;
+  const { status, strategy, open, limit = 20, offset = 0 } = filters;
   const values: unknown[] = [userId];
   const conditions: string[] = ['user_id = $1'];
 
   if (status) {
     values.push(status);
     conditions.push(`status = $${values.length}`);
+  }
+  if (open) {
+    values.push(OPEN_SETUP_DAYS);
+    conditions.push(
+      `(status = 'entered' OR (status IN ('created', 'notified') AND created_at > NOW() - make_interval(days => $${values.length})))`,
+    );
   }
   if (strategy) {
     values.push(strategy);

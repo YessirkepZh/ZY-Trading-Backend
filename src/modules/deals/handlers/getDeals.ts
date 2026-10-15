@@ -13,7 +13,7 @@ export async function getDealsHandler(
     return;
   }
 
-  const { status, strategy, limit, offset } = parsed.data;
-  const deals = await dealService.getDeals(currentUser(request).id, { status, strategy, limit, offset });
+  const { status, strategy, open, limit, offset } = parsed.data;
+  const deals = await dealService.getDeals(currentUser(request).id, { status, strategy, open, limit, offset });
   reply.send({ success: true, deals, count: deals.length });
 }

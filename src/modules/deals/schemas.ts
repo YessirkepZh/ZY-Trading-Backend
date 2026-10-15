@@ -23,8 +23,8 @@ export const CreateNoteSchema = z.object({
     })
     .optional(),
   inPlay: z.boolean().default(false),
-  screenshot: z.string().optional(),       // base64 PNG from Extension
-  screenshotFocus: z.string().optional(),  // base64 PNG: close-up of the entry timeframe
+  screenshot: z.string().optional(),       // base64 image (WebP) from Extension
+  screenshotFocus: z.string().optional(),  // base64 image: close-up of the entry timeframe
   chart: z
     .object({
       panes: z
@@ -59,14 +59,15 @@ export const UpdateDealSchema = z.object({
   status: z.enum(['entered', 'closed', 'missed']),
   closePrice: z.number().positive().optional(),
   actualEntryPrice: z.number().positive().optional(), // real fill, when it differs from the planned entry
+  enteredAt: z.string().datetime({ offset: true }).optional(), // fill time, when it was not just now
   dealResult: z.enum(['win', 'loss', 'breakeven']).optional(),
-  screenshot: z.string().optional(), // base64 PNG
+  screenshot: z.string().optional(), // base64 image
 });
 
 export const UploadScreenshotSchema = z.object({
   dealId:     z.number().int().positive(),
   type:       z.enum(['setup', 'entry', 'close']),
-  screenshot: z.string().min(1), // base64 PNG
+  screenshot: z.string().min(1), // base64 image
 });
 
 export type UploadScreenshotInput = z.infer<typeof UploadScreenshotSchema>;
@@ -74,6 +75,8 @@ export type UploadScreenshotInput = z.infer<typeof UploadScreenshotSchema>;
 export const GetDealsSchema = z.object({
   status: z.enum(['created', 'notified', 'entered', 'closed', 'missed']).optional(),
   strategy: z.enum(['Пробой', 'Ложный Пробой', 'Отбой']).optional(),
+  // Positions in progress plus recent setups still waiting for an entry
+  open: z.enum(['true', 'false']).transform((v) => v === 'true').optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   offset: z.coerce.number().int().min(0).default(0),
 });
