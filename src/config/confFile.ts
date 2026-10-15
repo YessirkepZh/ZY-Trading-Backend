@@ -13,6 +13,8 @@ const FILE_KEYS: Record<string, [section: string, key: string]> = {
   TELEGRAM_TOKEN:        ['telegram', 'token'],
   ALLOWED_USERS:         ['telegram', 'allowed_users'],
   ANTHROPIC_API_KEY:     ['anthropic', 'api_key'],
+  ANTHROPIC_MODEL_FAST:  ['anthropic', 'model_fast'],
+  ANTHROPIC_MODEL_SMART: ['anthropic', 'model_smart'],
   TWELVE_DATA_API_KEY:   ['market', 'twelve_data_api_key'],
   POLYGON_API_KEY:       ['market', 'polygon_api_key'],
   CRYPTOCOMPARE_API_KEY: ['market', 'cryptocompare_api_key'],

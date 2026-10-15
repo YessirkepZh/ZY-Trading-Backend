@@ -16,7 +16,9 @@
     "allowed_users": []
   },
   "anthropic": {
-    "api_key": ""
+    "api_key": "",
+    "model_fast": "",
+    "model_smart": ""
   },
   "market": {
     "twelve_data_api_key": "",

@@ -183,10 +183,17 @@ export async function computeMetrics(
         entryPrice?: number;
         takeProfitDefault?: number;
         stopLossDefault?: number;
+        entryPriceByStop?: number;
+        takeProfitByStop?: number;
+        stopLossByStop?: number;
       } | null;
-      if (!cr?.entryPrice || !cr?.takeProfitDefault || !cr?.stopLossDefault) return null;
-      const riskReal   = Math.abs(cr.entryPrice - cr.stopLossDefault);
-      const rewardReal = Math.abs(cr.takeProfitDefault - cr.entryPrice);
+      // The own-stop plan is what the trader executes, when one was set
+      const entry = cr?.entryPriceByStop ?? cr?.entryPrice;
+      const tp    = cr?.takeProfitByStop ?? cr?.takeProfitDefault;
+      const sl    = cr?.stopLossByStop ?? cr?.stopLossDefault;
+      if (!entry || !tp || !sl) return null;
+      const riskReal   = Math.abs(entry - sl);
+      const rewardReal = Math.abs(tp - entry);
       return riskReal > 0 ? round2(rewardReal / riskReal) : null;
     })
     .filter((r): r is number => r !== null);

@@ -72,7 +72,12 @@ export const config = {
 
   anthropic: {
     apiKey: required('ANTHROPIC_API_KEY'),
-    model: 'claude-opus-4-5',
+    models: {
+      // Setup check runs on every new deal: speed and price matter most
+      fast: env('ANTHROPIC_MODEL_FAST') ?? 'claude-haiku-5-5',
+      // Post-trade review and period reports: rarer, need deeper reasoning
+      smart: env('ANTHROPIC_MODEL_SMART') ?? 'claude-sonnet-5-5',
+    },
   },
 
   db: {

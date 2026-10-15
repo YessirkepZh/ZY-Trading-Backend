@@ -5,6 +5,7 @@ import type { ChecklistSnapshot, Direction, MarketType, Strategy } from '../../s
 import type { AnalysisMetrics } from '../analytics';
 import { getLabelByKey } from '../checklists';
 import type { CalculationResult, Deal } from '../deals';
+import { plannedEntryPrice } from '../deals/calculationService';
 import type { ChartPane, ClaudeCheckResult, ClaudeStatsResult } from './types';
 
 const client = new Anthropic({ apiKey: config.anthropic.apiKey });
@@ -97,20 +98,36 @@ Respond strictly in JSON:
   "improvements_ru": ["улучшение на русском"]
 }`;
 
-async function callClaude(system: string, userMessage: string): Promise<string> {
+type ModelTier = keyof typeof config.anthropic.models;
+
+/**
+ * One Claude request. System prompts are static per call type, so they are marked for prompt caching:
+ * repeated calls within 5 minutes read them from cache, once they exceed the model's minimum cacheable size.
+ * max_tokens also covers the model's thinking, which comes before the answer.
+ */
+async function askClaude(
+  tier: ModelTier,
+  system: string,
+  content: Anthropic.MessageParam['content'],
+  maxTokens = 4096,
+): Promise<string> {
   return retry(async () => {
     const response = await client.messages.create({
-      model: config.anthropic.model,
-      max_tokens: 1024,
-      system,
-      messages: [{ role: 'user', content: userMessage }],
+      model: config.anthropic.models[tier],
+      max_tokens: maxTokens,
+      system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
+      messages: [{ role: 'user', content }],
     });
 
-    const content = response.content[0];
-    if (!content || content.type !== 'text') {
-      throw new Error('Unexpected Claude response format');
+    if (response.stop_reason === 'max_tokens') {
+      throw new Error(`Claude response truncated at max_tokens=${maxTokens}`);
     }
-    return content.text;
+    const block = response.content.find((b) => b.type === 'text');
+    if (!block) {
+      const types = response.content.map((b) => b.type).join(',') || 'empty';
+      throw new Error(`Unexpected Claude response format: stop_reason=${response.stop_reason}, blocks=${types}`);
+    }
+    return block.text;
   });
 }
 
@@ -119,33 +136,15 @@ interface CaptionedImage {
   url: string;
 }
 
-async function callClaudeWithImages(
-  system: string,
-  text: string,
-  images: CaptionedImage[],
-): Promise<string> {
-  return retry(async () => {
-    const content: Anthropic.MessageParam['content'] = images.length > 0
-      ? [
-          ...images.flatMap((image): Anthropic.ContentBlockParam[] => [
-            { type: 'text', text: image.caption },
-            { type: 'image', source: { type: 'url', url: image.url } },
-          ]),
-          { type: 'text', text },
-        ]
-      : text;
-
-    const response = await client.messages.create({
-      model: config.anthropic.model,
-      max_tokens: 1024,
-      system,
-      messages: [{ role: 'user', content }],
-    });
-
-    const block = response.content[0];
-    if (!block || block.type !== 'text') throw new Error('Unexpected Claude response');
-    return block.text;
-  });
+function withImages(text: string, images: CaptionedImage[]): Anthropic.MessageParam['content'] {
+  if (images.length === 0) return text;
+  return [
+    ...images.flatMap((image): Anthropic.ContentBlockParam[] => [
+      { type: 'text', text: image.caption },
+      { type: 'image', source: { type: 'url', url: image.url } },
+    ]),
+    { type: 'text', text },
+  ];
 }
 
 function extractJson(text: string): unknown {
@@ -252,7 +251,7 @@ ${ohlcvSummary ? `\nLast 10 OHLCV bars:\n${ohlcvSummary}` : ''}
   if (screenshotUrl) images.push({ caption: 'Setup screenshot (full TradingView layout):', url: screenshotUrl });
   if (focusScreenshotUrl) images.push({ caption: 'Close-up of the entry timeframe:', url: focusScreenshotUrl });
 
-  const text = await callClaudeWithImages(buildCheckSetupSystem(marketType), userMessage, images);
+  const text = await askClaude('fast', buildCheckSetupSystem(marketType), withImages(userMessage, images));
   const parsed = extractJson(text) as {
     recommendation: 'take' | 'skip' | 'wait';
     confidence: number;
@@ -274,19 +273,24 @@ ${ohlcvSummary ? `\nLast 10 OHLCV bars:\n${ohlcvSummary}` : ''}
 }
 
 export async function analyzeClosedDeal(deal: Deal): Promise<ClaudeStatsResult> {
+  const calc = deal.calcResult;
+  const ownStop = calc.stopLossByStop !== undefined;
   const userMessage = `
 Сделка #${deal.id}
 Тикер: ${deal.ticker} (${deal.marketType})
 Стратегия: ${deal.strategy}
 Направление: ${deal.direction}
 Уровень: ${deal.entryRaw}
-ATR: ${deal.calcResult.atr}
-passRoad: ${deal.calcResult.passRoad ?? 'н/д'}%
-Вход: ${deal.calcResult.entryPrice}${deal.actualEntryPrice !== undefined
+ATR: ${calc.atr}
+passRoad: ${calc.passRoad ?? 'н/д'}%
+План сделки${ownStop ? ' (стоп задан трейдером, именно этот план исполнялся)' : ''}:
+Вход: ${plannedEntryPrice(calc)}${deal.actualEntryPrice !== undefined
   ? `\nФактический вход: ${deal.actualEntryPrice} (проскальзывание ${deal.slippagePercent ?? 0}%, плюс = хуже для трейдера)`
   : ''}
-SL: ${deal.calcResult.stopLossDefault}
-TP: ${deal.calcResult.takeProfitDefault}
+SL: ${ownStop ? calc.stopLossByStop : calc.stopLossDefault}
+TP: ${ownStop
+  ? [calc.takeProfitByStop, calc.takeProfitByStop2, calc.takeProfitByStop3].filter((v) => v !== undefined).join(' / ')
+  : calc.takeProfitDefault}
 Результат: ${deal.dealResult ?? 'неизвестен'}
 Цена закрытия: ${deal.closePrice ?? 'н/д'}
 ${deal.checklistSnapshot ? `
@@ -318,18 +322,7 @@ ${deal.claudeCheckResult ? `Рекомендация Claude при входе: $
   }
   content.push({ type: 'text', text: userMessage });
 
-  const text = await retry(async () => {
-    const response = await client.messages.create({
-      model: config.anthropic.model,
-      max_tokens: 1024,
-      system: ANALYZE_DEAL_SYSTEM,
-      messages: [{ role: 'user', content }],
-    });
-
-    const block = response.content[0];
-    if (!block || block.type !== 'text') throw new Error('Unexpected Claude response');
-    return block.text;
-  });
+  const text = await askClaude('smart', ANALYZE_DEAL_SYSTEM, content);
 
   const parsed = extractJson(text) as {
     summary?: string;
@@ -417,17 +410,7 @@ ${JSON.stringify(metrics.timeToEntryAnalysis, null, 2)}
 
 Сгенерируй детальный HTML отчёт с анализом и конкретными рекомендациями.`;
 
-  const text = await retry(async () => {
-    const response = await client.messages.create({
-      model: config.anthropic.model,
-      max_tokens: 4096,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userMessage }],
-    });
-    const block = response.content[0];
-    if (!block || block.type !== 'text') throw new Error('Unexpected Claude response format');
-    return block.text;
-  });
+  const text = await askClaude('smart', systemPrompt, userMessage, 8192);
 
   const clean = text.replace(/```json|```/g, '').trim();
 

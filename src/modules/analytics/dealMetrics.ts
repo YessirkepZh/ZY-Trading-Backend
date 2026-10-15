@@ -2,6 +2,7 @@ import { round2 } from '../../shared/formatters';
 import type { Direction, MarketType, Strategy } from '../../shared/trading';
 import { getLabelByKey } from '../checklists';
 import type { CalculationResult, DealPayload } from '../deals';
+import { plannedEntryPrice } from '../deals/calculationService';
 import type {
   ChecklistStatItem,
   DailyCount,
@@ -52,10 +53,11 @@ export function getIsoWeekInfo(date: Date): { period: string; weekStart: string 
 
 export function calcDealR(deal: ClosedDealRow): number | null {
   if (deal.closePrice == null) return null;
+  const calc = deal.calcResult;
   // Slippage changes the real risk, so the actual fill wins over the planned entry
-  const entryPrice = deal.actualEntryPrice ?? deal.calcResult.entryPrice;
-  // The trader's own stop defines the real risk; the calculated one is only a suggestion
-  const stopLoss = deal.payload.customStop ?? deal.calcResult.stopLossDefault;
+  const entryPrice = deal.actualEntryPrice ?? plannedEntryPrice(calc);
+  // The own-stop plan is what the trader executes; the ATR stop is only a suggestion
+  const stopLoss = calc.stopLossByStop ?? deal.payload.customStop ?? calc.stopLossDefault;
   if (!entryPrice || !stopLoss) return null;
 
   const risk = Math.abs(entryPrice - stopLoss);
