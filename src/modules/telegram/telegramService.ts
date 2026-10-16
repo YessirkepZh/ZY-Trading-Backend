@@ -111,6 +111,15 @@ export function formatScenarioMessage(
   );
   lines.push(`_${formatClaudeReasoningRu(claudeCheck)}_`);
 
+  const warnings = claudeCheck.warningsRu ?? claudeCheck.warnings;
+  if (warnings.length > 0) {
+    lines.push('');
+    lines.push('⚠️ *Предупреждения*');
+    for (const w of warnings) {
+      lines.push(`• ${w}`);
+    }
+  }
+
   if (checklist && strategy) {
     const plusLine = formatChecklistLine(userId, strategy, checklist.plus, '✅', 'ПРЕДПОСЫЛКИ');
     const minusLine = formatChecklistLine(userId, strategy, checklist.minus, '❌', 'МИНУСЫ');

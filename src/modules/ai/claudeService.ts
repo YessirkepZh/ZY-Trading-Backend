@@ -197,6 +197,29 @@ function formatChecklistLabels(userId: number, strategy: Strategy, keys: string[
   return keys.map((k) => formatItemForPrompt(userId, strategy, k)).join('; ');
 }
 
+/** Deterministic tilt warning from recent closed losses; shown even if the model omits it */
+function lossStreakWarnings(streak: number): { en: string[]; ru: string[] } {
+  if (streak < 2) return { en: [], ru: [] };
+  if (streak >= 3) {
+    return {
+      en: [
+        `Losing streak: ${streak} losses in a row. Pause or cut size — tilt risk is high.`,
+      ],
+      ru: [
+        `Серия убытков: ${streak} подряд. Лучше пауза или уменьшить размер — высокий риск тильта.`,
+      ],
+    };
+  }
+  return {
+    en: [
+      `Losing streak: ${streak} losses in a row. Be stricter than usual before taking the next trade.`,
+    ],
+    ru: [
+      `Серия убытков: ${streak} подряд. Будьте строже обычного перед следующим входом.`,
+    ],
+  };
+}
+
 export async function checkSetup(params: {
   userId: number;
   ticker: string;
@@ -211,10 +234,12 @@ export async function checkSetup(params: {
   screenshotUrl?: string;
   /** Present only when the extension drew the levels on the screenshot */
   chartPanes?: ChartPane[];
+  /** Consecutive closed losses ending at the latest deal; 0 = last was a win */
+  lossStreak?: number;
 }): Promise<ClaudeCheckResult> {
   const {
     userId, ticker, marketType, strategy, direction, entryRaw, calcResult, checklist, ohlcvSummary,
-    screenshotUrl, chartPanes,
+    screenshotUrl, chartPanes, lossStreak = 0,
   } = params;
 
   const volatilityContext = calcResult.atrPercent != null
@@ -243,6 +268,9 @@ Checklist (trader evaluation):
 PLUS: ${formatChecklistLabels(userId, strategy, checklist.plus)}
 MINUS: ${formatChecklistLabels(userId, strategy, checklist.minus)}
 WAIT: ${formatChecklistLabels(userId, strategy, checklist.wait)}
+${lossStreak >= 2
+  ? `\nTrader psychology: ${lossStreak} consecutive closed losses. Prefer caution; mention tilt risk in warnings if recommending take.`
+  : ''}
 ${ohlcvSummary ? `\nLast 10 OHLCV bars:\n${ohlcvSummary}` : ''}
 `.trim();
 
@@ -264,13 +292,17 @@ ${ohlcvSummary ? `\nLast 10 OHLCV bars:\n${ohlcvSummary}` : ''}
     warnings_ru?: string[];
   };
 
+  const streak = lossStreakWarnings(lossStreak);
+  const warnings = [...streak.en, ...(parsed.warnings ?? [])];
+  const warningsRu = [...streak.ru, ...(parsed.warnings_ru ?? parsed.warnings ?? [])];
+
   return {
     recommendation: parsed.recommendation,
     confidence: parsed.confidence,
     reasoning: parsed.reasoning,
     reasoningRu: parsed.reasoning_ru,
-    warnings: parsed.warnings ?? [],
-    warningsRu: parsed.warnings_ru,
+    warnings,
+    warningsRu: warningsRu.length > 0 ? warningsRu : undefined,
     checkedAt: new Date(),
   };
 }

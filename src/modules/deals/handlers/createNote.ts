@@ -73,6 +73,7 @@ async function createNote(
 
     // 6. Claude check — always has ohlcvSummary from bars
     const ohlcvSummary = bars.length > 0 ? marketDataService.formatOhlcvSummary(bars) : undefined;
+    const lossStreak = await dealService.getCurrentLossStreak(userId);
     const claudeCheck = await claudeService.checkSetup({
       userId,
       ticker,
@@ -85,6 +86,7 @@ async function createNote(
       ohlcvSummary,
       screenshotUrl: setupScreenshotUrl,
       chartPanes: chart?.panes,
+      lossStreak,
     });
 
     // 7. Save Claude result

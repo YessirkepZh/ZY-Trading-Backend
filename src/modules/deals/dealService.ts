@@ -249,6 +249,31 @@ function mapRowToComment(row: Record<string, unknown>): DealComment {
   };
 }
 
+/**
+ * How many losses in a row end at the most recent closed win/loss.
+ * 0 = last closed deal was a win (or there are no closed deals yet).
+ */
+export async function getCurrentLossStreak(userId: number): Promise<number> {
+  const result = await pool.query<{ deal_result: string }>(
+    `SELECT deal_result
+     FROM deals
+     WHERE user_id = $1
+       AND status = 'closed'
+       AND deal_result IN ('win', 'loss')
+       AND closed_at IS NOT NULL
+     ORDER BY closed_at DESC
+     LIMIT 20`,
+    [userId],
+  );
+
+  let streak = 0;
+  for (const row of result.rows) {
+    if (row.deal_result !== 'loss') break;
+    streak += 1;
+  }
+  return streak;
+}
+
 export async function getDealComments(dealId: number): Promise<DealComment[]> {
   const result = await pool.query<Record<string, unknown>>(
     `SELECT * FROM deal_comments WHERE deal_id = $1 ORDER BY created_at ASC`,

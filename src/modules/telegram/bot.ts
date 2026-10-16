@@ -163,6 +163,7 @@ export function initBot(): void {
 
       const id = await dealService.createDeal(user.id, payload, calcResult);
       const ohlcvSummary = marketDataService.formatOhlcvSummary(bars);
+      const lossStreak = await dealService.getCurrentLossStreak(user.id);
       const claudeCheck = await claudeService.checkSetup({
         userId: user.id,
         ticker,
@@ -173,6 +174,7 @@ export function initBot(): void {
         calcResult,
         checklist: { plus: [], minus: [], wait: [] },
         ohlcvSummary,
+        lossStreak,
       });
 
       await dealService.setClaudeCheck(id, claudeCheck);
