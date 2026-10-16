@@ -15,6 +15,7 @@ const migrations = [
   '010_device_limits.sql',
   '011_focus_screenshot.sql',
   '012_actual_entry.sql',
+  '013_checklist_description.sql',
 ];
 
 // Migrations that existed before tracking was introduced — the only ones bootstrap may mark as applied

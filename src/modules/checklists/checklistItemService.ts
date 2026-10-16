@@ -21,6 +21,7 @@ interface ItemRow {
   item_type: ItemType;
   key: string;
   label: string;
+  description: string | null;
   position: number;
   created_at: Date;
   updated_at: Date;
@@ -41,6 +42,8 @@ export interface ChecklistItemPublic {
   itemType: ItemType;
   key: string;
   label: string;
+  /** Longer explanation for Claude; absent when the trader left it empty */
+  description?: string;
   position: number;
 }
 
@@ -63,11 +66,14 @@ export interface CreateChecklistItemInput {
   itemType: ItemType;
   key: string;
   label: string;
+  description?: string;
   position?: number;
 }
 
 export interface UpdateChecklistItemInput {
   label?: string;
+  /** null clears a previously saved description */
+  description?: string | null;
   position?: number;
 }
 
@@ -82,6 +88,7 @@ function mapGroup(row: GroupRow): ChecklistGroup {
 }
 
 function mapItem(row: ItemRow): ChecklistItemPublic {
+  const description = row.description?.trim() || undefined;
   return {
     id: row.id,
     groupId: row.group_id,
@@ -89,6 +96,7 @@ function mapItem(row: ItemRow): ChecklistItemPublic {
     itemType: row.item_type,
     key: row.key,
     label: row.label,
+    description,
     position: row.position,
   };
 }
@@ -127,6 +135,13 @@ function refreshCache(): void {
 export function getLabelByKey(userId: number, strategy: Strategy, key: string): string {
   const item = userItems(userId).find((i) => i.strategy === strategy && i.key === key);
   return item?.label ?? key;
+}
+
+/** Label plus optional description — what Claude should read for a checked item */
+export function formatItemForPrompt(userId: number, strategy: Strategy, key: string): string {
+  const item = userItems(userId).find((i) => i.strategy === strategy && i.key === key);
+  if (!item) return key;
+  return item.description ? `${item.label} — ${item.description}` : item.label;
 }
 
 export interface CachedChecklist {
@@ -219,17 +234,17 @@ export async function createItem(
   userId: number,
   input: CreateChecklistItemInput,
 ): Promise<ChecklistItemPublic> {
-  const { groupId, itemType, key, label, position = 0 } = input;
+  const { groupId, itemType, key, label, description, position = 0 } = input;
 
   // Resolve strategy name from group
   const group = cachedGroups.find((g) => g.id === groupId);
   if (!group) throw new Error(`Checklist group #${groupId} not found`);
 
   const result = await pool.query<ItemRow>(
-    `INSERT INTO checklist_items (group_id, strategy, item_type, key, label, position, user_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `INSERT INTO checklist_items (group_id, strategy, item_type, key, label, description, position, user_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING *`,
-    [groupId, group.name, itemType, key, label, position, userId],
+    [groupId, group.name, itemType, key, label, description?.trim() || null, position, userId],
   );
   const row = result.rows[0];
   if (!row) throw new Error('createItem: no row returned');
@@ -248,6 +263,10 @@ export async function updateItem(
   if (input.label !== undefined) {
     values.push(input.label);
     updates.push(`label = $${values.length}`);
+  }
+  if (input.description !== undefined) {
+    values.push(input.description === null ? null : input.description.trim() || null);
+    updates.push(`description = $${values.length}`);
   }
   if (input.position !== undefined) {
     values.push(input.position);
@@ -276,8 +295,8 @@ export async function deleteItem(userId: number, id: number): Promise<void> {
 /** Gives a new user their own editable copy of another user's checklist */
 export async function copyItems(fromUserId: number, toUserId: number): Promise<void> {
   await pool.query(
-    `INSERT INTO checklist_items (group_id, strategy, item_type, key, label, position, user_id)
-     SELECT group_id, strategy, item_type, key, label, position, $2
+    `INSERT INTO checklist_items (group_id, strategy, item_type, key, label, description, position, user_id)
+     SELECT group_id, strategy, item_type, key, label, description, position, $2
      FROM checklist_items WHERE user_id = $1
      ON CONFLICT (user_id, strategy, key) DO NOTHING`,
     [fromUserId, toUserId],

@@ -10,15 +10,19 @@ const CreateItemSchema = z.object({
   itemType: z.enum(['plus', 'minus', 'wait']),
   key: z.string().min(1).max(60).regex(/^[a-z0-9_]+$/, 'Key must be snake_case (lowercase, digits, underscores)'),
   label: z.string().min(1).max(200),
+  description: z.string().max(500).optional(),
   position: z.number().int().min(0).default(0),
 });
 
 const UpdateItemSchema = z.object({
   label: z.string().min(1).max(200).optional(),
+  // Empty string clears the description
+  description: z.string().max(500).nullable().optional(),
   position: z.number().int().min(0).optional(),
-}).refine((d) => d.label !== undefined || d.position !== undefined, {
-  message: 'At least one of label or position must be provided',
-});
+}).refine(
+  (d) => d.label !== undefined || d.description !== undefined || d.position !== undefined,
+  { message: 'At least one of label, description or position must be provided' },
+);
 
 // ── Groups — read-only ────────────────────────────────────────────────────────
 

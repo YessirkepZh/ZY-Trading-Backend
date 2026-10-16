@@ -1,5 +1,6 @@
 export {
   copyItems as copyChecklistItems,
+  formatItemForPrompt,
   getChecklistForStrategy,
   getLabelByKey,
   initChecklistCache,

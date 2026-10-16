@@ -3,7 +3,7 @@ import { config } from '../../config';
 import { retry } from '../../shared/retry';
 import type { ChecklistSnapshot, Direction, MarketType, Strategy } from '../../shared/trading';
 import type { AnalysisMetrics } from '../analytics';
-import { getLabelByKey } from '../checklists';
+import { formatItemForPrompt } from '../checklists';
 import type { CalculationResult, Deal } from '../deals';
 import { plannedEntryPrice } from '../deals/calculationService';
 import type { ChartPane, ClaudeCheckResult, ClaudeStatsResult } from './types';
@@ -194,7 +194,7 @@ entry: ${calcResult.entryPriceByStop}, SL: ${calcResult.stopLossByStop}, TP: ${t
 
 function formatChecklistLabels(userId: number, strategy: Strategy, keys: string[]): string {
   if (keys.length === 0) return 'none';
-  return keys.map((k) => getLabelByKey(userId, strategy, k)).join('; ');
+  return keys.map((k) => formatItemForPrompt(userId, strategy, k)).join('; ');
 }
 
 export async function checkSetup(params: {
@@ -298,9 +298,9 @@ TP: ${ownStop
 Цена закрытия: ${deal.closePrice ?? 'н/д'}
 ${deal.checklistSnapshot ? `
 Чек-лист:
-ПРЕДПОСЫЛКИ: ${deal.checklistSnapshot.plus.join(', ') || 'нет'}
-МИНУСЫ: ${deal.checklistSnapshot.minus.join(', ') || 'нет'}
-ОЖИДАЮ: ${deal.checklistSnapshot.wait.join(', ') || 'нет'}
+ПРЕДПОСЫЛКИ: ${formatChecklistLabels(deal.userId, deal.strategy, deal.checklistSnapshot.plus)}
+МИНУСЫ: ${formatChecklistLabels(deal.userId, deal.strategy, deal.checklistSnapshot.minus)}
+ОЖИДАЮ: ${formatChecklistLabels(deal.userId, deal.strategy, deal.checklistSnapshot.wait)}
 ` : ''}
 ${deal.claudeCheckResult ? `Рекомендация Claude при входе: ${deal.claudeCheckResult.recommendation} (${deal.claudeCheckResult.confidence}%)` : ''}
 `.trim();
