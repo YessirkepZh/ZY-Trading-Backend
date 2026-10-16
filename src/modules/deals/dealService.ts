@@ -25,6 +25,7 @@ function mapRowToDeal(row: Record<string, unknown>): Deal {
     actualEntryPrice: row['actual_entry_price'] != null ? Number(row['actual_entry_price']) : undefined,
     slippagePercent: row['slippage_percent'] != null ? Number(row['slippage_percent']) : undefined,
     closedAt: row['closed_at'] != null ? new Date(row['closed_at'] as string) : undefined,
+    enteredAt: row['entered_at'] != null ? new Date(row['entered_at'] as string) : undefined,
     claudeStatsResult: row['claude_stats_result'] as Deal['claudeStatsResult'],
     screenshotSetup: row['screenshot_setup'] as string | undefined,
     screenshotEntry: row['screenshot_entry'] as string | undefined,

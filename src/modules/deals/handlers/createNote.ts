@@ -30,7 +30,7 @@ async function createNote(
     const {
       ticker, marketType, strategy, direction,
       entryRaw, customStop, riskPercent, ratio, luftPercent, riskSum, checklist,
-      screenshot, screenshotFocus, chart,
+      screenshot, chart,
     } = input;
 
     // Deduplication check
@@ -71,16 +71,6 @@ async function createNote(
       }
     }
 
-    let focusScreenshotUrl: string | undefined;
-    if (screenshotFocus) {
-      try {
-        focusScreenshotUrl = await storageService.uploadScreenshot(screenshotFocus, id, 'focus');
-        await dealService.setScreenshot(id, 'focus', focusScreenshotUrl);
-      } catch (err) {
-        request.log.warn({ err }, 'Focus screenshot upload failed (non-fatal)');
-      }
-    }
-
     // 6. Claude check — always has ohlcvSummary from bars
     const ohlcvSummary = bars.length > 0 ? marketDataService.formatOhlcvSummary(bars) : undefined;
     const claudeCheck = await claudeService.checkSetup({
@@ -94,7 +84,6 @@ async function createNote(
       checklist: checklist ?? { plus: [], minus: [], wait: [] },
       ohlcvSummary,
       screenshotUrl: setupScreenshotUrl,
-      focusScreenshotUrl,
       chartPanes: chart?.panes,
     });
 

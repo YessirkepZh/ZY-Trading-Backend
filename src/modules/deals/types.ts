@@ -60,6 +60,8 @@ export interface Deal {
   /** Signed % vs the planned entry, positive = worse for the trader */
   slippagePercent?: number;
   closedAt?: Date;
+  /** When the order filled; absent until the trader marks the deal entered */
+  enteredAt?: Date;
   claudeStatsResult?: ClaudeStatsResult;
   screenshotSetup?: string;
   screenshotEntry?: string;

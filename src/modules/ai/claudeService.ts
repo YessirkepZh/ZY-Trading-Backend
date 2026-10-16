@@ -172,14 +172,15 @@ function formatInterval(interval: string): string {
 function describeChartPanes(panes: ChartPane[]): string {
   const list = panes
     .map((p) => {
-      const marks = [p.entry && 'entry timeframe', p.annotated && 'levels drawn'].filter(Boolean);
+      const marks = [p.entry && 'младший ТФ входа', p.annotated && 'линии нарисованы'].filter(Boolean);
       return `${formatInterval(p.interval)} ${p.symbol}${marks.length ? ` (${marks.join(', ')})` : ''}`;
     })
     .join('; ');
-  return `Screenshot layout, timeframes: ${list}.
-Lines were drawn by the extension from the numbers below, not by the trader:
-gray dashed = level, blue = entry, red = SL, green = TP; shaded zones on the entry timeframe = risk (red) and reward (green).
-Price levels are identical on every timeframe — use higher timeframes for structure, the entry timeframe for the trigger.`;
+  const entry = panes.find((p) => p.entry);
+  const entryTf = entry ? formatInterval(entry.interval) : 'младшем';
+  return `На скриншоте весь layout TradingView: ${list}.
+Линии (уровень / вход / SL / TP, при закрытии ещё выход) нарисованы расширением только на младшем таймфрейме (${entryTf}).
+Старшие таймфреймы на том же фото — для структуры; уровни на них смотри по тому, что нарисовал трейдер сам.`;
 }
 
 function formatStopPlan(calcResult: CalculationResult): string {
@@ -208,14 +209,12 @@ export async function checkSetup(params: {
   /** Absent when the setup came from the chart indicator: the screenshot carries the price context */
   ohlcvSummary?: string;
   screenshotUrl?: string;
-  /** Close-up of the entry timeframe pane */
-  focusScreenshotUrl?: string;
   /** Present only when the extension drew the levels on the screenshot */
   chartPanes?: ChartPane[];
 }): Promise<ClaudeCheckResult> {
   const {
     userId, ticker, marketType, strategy, direction, entryRaw, calcResult, checklist, ohlcvSummary,
-    screenshotUrl, focusScreenshotUrl, chartPanes,
+    screenshotUrl, chartPanes,
   } = params;
 
   const volatilityContext = calcResult.atrPercent != null
@@ -248,8 +247,12 @@ ${ohlcvSummary ? `\nLast 10 OHLCV bars:\n${ohlcvSummary}` : ''}
 `.trim();
 
   const images: CaptionedImage[] = [];
-  if (screenshotUrl) images.push({ caption: 'Setup screenshot (full TradingView layout):', url: screenshotUrl });
-  if (focusScreenshotUrl) images.push({ caption: 'Close-up of the entry timeframe:', url: focusScreenshotUrl });
+  if (screenshotUrl) {
+    images.push({
+      caption: 'Setup screenshot (full TradingView layout; levels drawn on the lowest timeframe):',
+      url: screenshotUrl,
+    });
+  }
 
   const text = await askClaude('fast', buildCheckSetupSystem(marketType), withImages(userMessage, images));
   const parsed = extractJson(text) as {
@@ -305,19 +308,15 @@ ${deal.claudeCheckResult ? `Рекомендация Claude при входе: $
   const content: Anthropic.MessageParam['content'] = [];
 
   if (deal.screenshotSetup) {
-    content.push({ type: 'text', text: 'Скриншот сетапа:' });
+    content.push({ type: 'text', text: 'Скриншот сетапа (полный layout; линии на младшем ТФ):' });
     content.push({ type: 'image', source: { type: 'url', url: deal.screenshotSetup } });
   }
-  if (deal.screenshotFocus) {
-    content.push({ type: 'text', text: 'Крупный план ТФ входа при сетапе:' });
-    content.push({ type: 'image', source: { type: 'url', url: deal.screenshotFocus } });
-  }
   if (deal.screenshotEntry) {
-    content.push({ type: 'text', text: 'Скриншот входа:' });
+    content.push({ type: 'text', text: 'Скриншот входа (полный layout; линии и точка входа на младшем ТФ):' });
     content.push({ type: 'image', source: { type: 'url', url: deal.screenshotEntry } });
   }
   if (deal.screenshotClose) {
-    content.push({ type: 'text', text: 'Скриншот закрытия:' });
+    content.push({ type: 'text', text: 'Скриншот закрытия (полный layout; вход и выход на младшем ТФ):' });
     content.push({ type: 'image', source: { type: 'url', url: deal.screenshotClose } });
   }
   content.push({ type: 'text', text: userMessage });

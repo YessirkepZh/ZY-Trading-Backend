@@ -23,8 +23,9 @@ export const CreateNoteSchema = z.object({
     })
     .optional(),
   inPlay: z.boolean().default(false),
-  screenshot: z.string().optional(),       // base64 image (WebP) from Extension
-  screenshotFocus: z.string().optional(),  // base64 image: close-up of the entry timeframe
+  screenshot: z.string().optional(),       // base64 image (WebP): full layout, levels on lowest TF
+  /** @deprecated older extension builds; ignored — one full-layout screenshot is enough */
+  screenshotFocus: z.string().optional(),
   chart: z
     .object({
       panes: z
