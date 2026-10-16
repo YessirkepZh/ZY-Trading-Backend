@@ -1,5 +1,13 @@
-import type { Deal } from '../deals';
 import type { MarketType, Strategy } from '../../shared/trading';
+import type { Deal } from '../deals';
+import type { ClaudeEvaluation } from './claudeEvaluation';
+
+export type {
+  ClaudeConfidenceBucket,
+  ClaudeEvalByRec,
+  ClaudeEvaluation,
+  ClaudeRecommendation,
+} from './claudeEvaluation';
 
 export interface MarketStats {
   total: number;
@@ -73,6 +81,8 @@ export interface DashboardStats {
   dailyDrawdown: DailyDrawdown[];
   topChecklistInWins: ChecklistStatItem[];
   topChecklistInLoss: ChecklistStatItem[];
+  /** null when no closed win/loss deals have a Claude check */
+  claudeEvaluation: ClaudeEvaluation | null;
   recentDeals: Deal[];
 }
 

@@ -1,8 +1,10 @@
 import { round2 } from '../../shared/formatters';
 import type { Direction, MarketType, Strategy } from '../../shared/trading';
+import type { ClaudeCheckResult } from '../ai';
 import { getLabelByKey } from '../checklists';
 import type { CalculationResult, DealPayload } from '../deals';
 import { plannedEntryPrice } from '../deals/calculationService';
+import { computeClaudeEvaluation } from './claudeEvaluation';
 import type {
   ChecklistStatItem,
   DailyCount,
@@ -28,6 +30,7 @@ export interface ClosedDealRow {
   payload: DealPayload;
   passRoad?: number;
   closedAt: Date;
+  claudeCheckResult?: ClaudeCheckResult;
 }
 
 export function toDateKey(d: Date): string {
@@ -351,6 +354,7 @@ export function computeDashboardFromClosedDeals(
     dailyDrawdown,
     topChecklistInWins: buildChecklistTop(userId, checklistRows, 'wins'),
     topChecklistInLoss: buildChecklistTop(userId, checklistRows, 'losses'),
+    claudeEvaluation: computeClaudeEvaluation(deals),
   };
 }
 
@@ -368,7 +372,7 @@ export const CHECKLIST_STATS_QUERY = `
 
 export const CLOSED_DEALS_QUERY = `
   SELECT id, strategy, market_type, direction, deal_result, close_price, actual_entry_price,
-         calc_result, payload, pass_road, closed_at
+         calc_result, payload, pass_road, closed_at, claude_check_result
   FROM deals
   WHERE user_id = $1 AND status = 'closed' AND closed_at IS NOT NULL
   ORDER BY closed_at ASC

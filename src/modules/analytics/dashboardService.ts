@@ -24,6 +24,7 @@ function mapRowToClosedDeal(row: Record<string, unknown>): ClosedDealRow {
     payload: (row['payload'] as DealPayload) ?? {},
     passRoad: row['pass_road'] != null ? Number(row['pass_road']) : undefined,
     closedAt: new Date(row['closed_at'] as string),
+    claudeCheckResult: (row['claude_check_result'] as ClosedDealRow['claudeCheckResult']) ?? undefined,
   };
 }
 
