@@ -42,6 +42,20 @@ export async function saveReport(params: {
   return row.id;
 }
 
+export const PENDING_REPORT_SUMMARY = 'Генерируется…';
+
+export async function updateReportContent(
+  id: number,
+  userId: number,
+  params: { summary: string; contentHtml: string },
+): Promise<void> {
+  await pool.query(`
+    UPDATE analysis_reports
+    SET summary = $3, content_html = $4
+    WHERE id = $1 AND user_id = $2
+  `, [id, userId, params.summary, params.contentHtml]);
+}
+
 export async function getReports(userId: number, limit = 20): Promise<AnalysisReport[]> {
   const { rows } = await pool.query<Record<string, unknown>>(`
     SELECT id, period_from, period_to, deals_count,

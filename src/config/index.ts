@@ -86,6 +86,11 @@ export const config = {
     },
   },
 
+  /** PG-backed Claude job queue (SKIP LOCKED). Set CLAUDE_QUEUE_ENABLED=false to disable worker. */
+  claudeQueue: {
+    enabled: (env('CLAUDE_QUEUE_ENABLED') ?? 'true') !== 'false',
+  },
+
   db: {
     connectionString: required('DATABASE_URL'),
   },

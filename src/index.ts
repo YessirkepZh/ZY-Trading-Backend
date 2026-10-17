@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import { config } from './config';
 import { registerRoutes } from './app/routes';
 import { pool } from './db/pool';
+import { startClaudeWorker } from './modules/ai';
 import { initChecklistCache } from './modules/checklists';
 import { initBot } from './modules/telegram';
 
@@ -37,6 +38,9 @@ async function main(): Promise<void> {
   } else {
     fastify.log.warn('Telegram bot disabled (BOT_ENABLED=false)');
   }
+
+  // Claude job worker (PG queue, concurrency 1)
+  startClaudeWorker();
 
   // Start HTTP server
   await fastify.listen({ port: config.port, host: '0.0.0.0' });

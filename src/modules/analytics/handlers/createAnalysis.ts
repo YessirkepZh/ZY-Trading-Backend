@@ -1,6 +1,6 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { claudeService } from '../../ai';
+import { claudeJobService } from '../../ai';
 import { currentUser } from '../../auth';
 import * as analyticsService from '../analyticsService';
 import * as analysisReportService from '../analysisReportService';
@@ -34,20 +34,29 @@ export async function createAnalysisHandler(
       return;
     }
 
-    const { summary, contentHtml } = await claudeService.generateAnalysisReport({
-      periodFrom, periodTo, metrics,
-    });
-
+    // Stub report so the client can poll by id while Claude runs
     const id = await analysisReportService.saveReport({
       userId,
       periodFrom, periodTo,
       dealsCount: metrics.closedDeals,
       metrics,
-      contentHtml,
-      summary,
+      contentHtml: '<p style="color:#888">Отчёт генерируется…</p>',
+      summary: analysisReportService.PENDING_REPORT_SUMMARY,
     });
 
-    reply.send({ success: true, id, summary, metrics });
+    await claudeJobService.enqueueJob({
+      userId,
+      jobType: 'analysis_report',
+      payload: { reportId: id, periodFrom, periodTo, metrics },
+    });
+
+    reply.send({
+      success: true,
+      id,
+      summary: analysisReportService.PENDING_REPORT_SUMMARY,
+      metrics,
+      pending: true,
+    });
 
   } catch (err) {
     request.log.error({ err }, 'createAnalysis failed');

@@ -1,5 +1,5 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
-import { claudeService } from '../../ai';
+import { claudeJobService } from '../../ai';
 import { marketDataService } from '../../market';
 import { storageService } from '../../storage';
 import { currentUser } from '../../auth';
@@ -16,7 +16,7 @@ export function createNoteHandler(notifier: DealNotifier) {
 async function createNote(
   request: FastifyRequest,
   reply: FastifyReply,
-  notifier: DealNotifier,
+  _notifier: DealNotifier,
 ): Promise<void> {
   try {
     const parsed = CreateNoteSchema.safeParse(request.body);
@@ -71,42 +71,30 @@ async function createNote(
       }
     }
 
-    // 6. Claude check — always has ohlcvSummary from bars
+    // 6. Enqueue Claude check + Telegram (worker); HTTP returns immediately
     const ohlcvSummary = bars.length > 0 ? marketDataService.formatOhlcvSummary(bars) : undefined;
     const lossStreak = await dealService.getCurrentLossStreak(userId);
-    const claudeCheck = await claudeService.checkSetup({
+    const jobId = await claudeJobService.enqueueJob({
       userId,
-      ticker,
-      marketType,
-      strategy,
-      direction,
-      entryRaw,
-      calcResult,
-      checklist: checklist ?? { plus: [], minus: [], wait: [] },
-      ohlcvSummary,
-      screenshotUrl: setupScreenshotUrl,
-      chartPanes: chart?.panes,
-      lossStreak,
+      dealId: id,
+      jobType: 'check_setup',
+      payload: {
+        ticker,
+        marketType,
+        strategy,
+        direction,
+        entryRaw,
+        calcResult,
+        checklist: checklist ?? { plus: [], minus: [], wait: [] },
+        ohlcvSummary,
+        screenshotUrl: setupScreenshotUrl,
+        chartPanes: chart?.panes,
+        lossStreak,
+        notifyTelegram: true,
+      },
     });
 
-    // 7. Save Claude result
-    await dealService.setClaudeCheck(id, claudeCheck);
-
-    // 8. Update status
-    await dealService.updateDealStatus(id, 'notified');
-
-    // 9. Send Telegram notification (non-fatal — bot may be unavailable)
-    try {
-      const deal = await dealService.getDealById(userId, id);
-      if (deal) {
-        await notifier.notifyNewDeal(deal, calcResult, claudeCheck, checklist);
-      }
-    } catch (telegramErr) {
-      request.log.warn({ err: telegramErr }, 'Telegram notification failed (non-fatal)');
-    }
-
-    // 10. Return response
-    reply.send({ success: true, id, calcResult, claudeCheck });
+    reply.send({ success: true, id, calcResult, claudePending: true, jobId });
   } catch (err) {
     if (err instanceof SetupValidationError) {
       reply.status(400).send({ success: false, error: err.message });

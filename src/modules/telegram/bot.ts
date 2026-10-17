@@ -1,11 +1,11 @@
 import TelegramBot from 'node-telegram-bot-api';
 import { config } from '../../config';
-import { claudeService } from '../ai';
+import { claudeJobService } from '../ai';
 import { dashboardService } from '../analytics';
 import { findOwner, findUserByTelegramId, type AuthUser } from '../auth';
 import { calculationService, dealService } from '../deals';
 import { marketDataService } from '../market';
-import { formatScenarioMessage, initTelegramService } from './telegramService';
+import { initTelegramService } from './telegramService';
 import {
   formatClaudeReasoningRu,
   formatClaudeRecommendationRu,
@@ -164,31 +164,28 @@ export function initBot(): void {
       const id = await dealService.createDeal(user.id, payload, calcResult);
       const ohlcvSummary = marketDataService.formatOhlcvSummary(bars);
       const lossStreak = await dealService.getCurrentLossStreak(user.id);
-      const claudeCheck = await claudeService.checkSetup({
+      await claudeJobService.enqueueJob({
         userId: user.id,
-        ticker,
-        marketType: 'crypto',
-        strategy: 'Пробой',
-        direction,
-        entryRaw,
-        calcResult,
-        checklist: { plus: [], minus: [], wait: [] },
-        ohlcvSummary,
-        lossStreak,
+        dealId: id,
+        jobType: 'check_setup',
+        payload: {
+          ticker,
+          marketType: 'crypto',
+          strategy: 'Пробой',
+          direction,
+          entryRaw,
+          calcResult,
+          checklist: { plus: [], minus: [], wait: [] },
+          ohlcvSummary,
+          lossStreak,
+          notifyTelegram: true,
+        },
       });
 
-      await dealService.setClaudeCheck(id, claudeCheck);
-      await dealService.updateDealStatus(id, 'notified');
-
-      const deal = await dealService.getDealById(user.id, id);
-      if (!deal) throw new Error('Deal not found after creation');
-
-      const keyboard = getDealActionKeyboard(id);
-      const text = formatScenarioMessage(deal, calcResult, claudeCheck, undefined);
-      await bot.sendMessage(msg.chat.id, text, {
-        parse_mode: 'Markdown',
-        reply_markup: keyboard,
-      });
+      await bot.sendMessage(
+        msg.chat.id,
+        `✅ Сделка #${id} (${ticker}) создана. Claude проверяет сетап — полный разбор придёт следом.`,
+      );
     } catch (err) {
       console.error('[bot manual input]', err);
       await bot.sendMessage(msg.chat.id, `❌ Ошибка: ${(err as Error).message}`);

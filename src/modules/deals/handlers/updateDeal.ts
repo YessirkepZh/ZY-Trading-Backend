@@ -1,5 +1,5 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
-import { claudeService } from '../../ai';
+import { claudeJobService } from '../../ai';
 import { storageService } from '../../storage';
 import { currentUser } from '../../auth';
 import * as calculationService from '../calculationService';
@@ -119,16 +119,16 @@ export async function updateDealHandler(
       }
     }
 
-    // Reload deal for Claude analysis
-    const closedDeal = await dealService.getDealById(userId, id);
-    if (closedDeal) {
-      try {
-        const statsResult = await claudeService.analyzeClosedDeal(closedDeal);
-        await dealService.setClaudeStats(id, statsResult);
-      } catch (err) {
-        // Non-fatal: log and continue
-        console.error('Claude analysis failed for deal', id, err);
-      }
+    // Claude post-trade analysis runs in the background worker
+    try {
+      await claudeJobService.enqueueJob({
+        userId,
+        dealId: id,
+        jobType: 'analyze_closed',
+        payload: {},
+      });
+    } catch (err) {
+      console.error('enqueue analyze_closed failed (non-fatal)', id, err);
     }
   } else {
     await dealService.updateDealStatus(id, status, {
