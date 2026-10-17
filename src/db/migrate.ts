@@ -16,6 +16,7 @@ const migrations = [
   '011_focus_screenshot.sql',
   '012_actual_entry.sql',
   '013_checklist_description.sql',
+  '014_deal_reminders.sql',
 ];
 
 // Migrations that existed before tracking was introduced — the only ones bootstrap may mark as applied

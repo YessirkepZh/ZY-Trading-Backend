@@ -2,10 +2,14 @@
   "http": {
     "port": 3001,
     "environment": "development",
-    "cors_origins": []
+    "cors_origins": [],
+    "frontend_url": "http://localhost:5173"
   },
   "auth": {
     "jwt_secret": ""
+  },
+  "cron": {
+    "secret": ""
   },
   "postgres": {
     "connection_url": "postgresql://postgres@localhost:5433/edgemark_dev"

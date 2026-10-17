@@ -8,6 +8,8 @@ const PUBLIC_PATHS = new Set([
   '/api/auth/refresh',
   '/api/auth/logout',
   '/api/auth/invites/accept',
+  // Protected by CRON_SECRET inside the handler, not by JWT
+  '/api/internal/reminders',
 ]);
 
 const DEVICE_ID_PATTERN = /^[A-Za-z0-9-]{8,64}$/;

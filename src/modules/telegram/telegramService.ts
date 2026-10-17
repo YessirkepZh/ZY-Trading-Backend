@@ -181,3 +181,66 @@ export async function sendText(userId: number, text: string): Promise<boolean> {
 export async function sendAlert(userId: number, text: string): Promise<boolean> {
   return sendText(userId, `🔔 ${text}`);
 }
+
+async function sendMarkdown(
+  userId: number,
+  text: string,
+  replyMarkup?: TelegramBot.InlineKeyboardMarkup,
+): Promise<boolean> {
+  if (!botInstance) return false;
+  const chatId = await resolveChatId(userId);
+  if (chatId === null) return false;
+  await botInstance.sendMessage(chatId, text, {
+    parse_mode: 'Markdown',
+    reply_markup: replyMarkup,
+  });
+  return true;
+}
+
+/** Stuck setup: still created/notified after 1h / 4h / 24h */
+export async function sendSetupReminder(
+  userId: number,
+  deal: { id: number; ticker: string; stageHours: number; url: string },
+): Promise<boolean> {
+  const text = [
+    `🔔 *Напоминание · сетап*`,
+    ``,
+    `*${deal.ticker}* #${deal.id} без решения уже ~${deal.stageHours}ч.`,
+    `Вошли в сделку или пропустили?`,
+    ``,
+    `[Открыть сделку](${deal.url})`,
+  ].join('\n');
+
+  return sendMarkdown(userId, text, getDealActionKeyboard(deal.id));
+}
+
+/** Setup older than 3 days — marked missed automatically */
+export async function sendSetupAutoMissedNotice(
+  userId: number,
+  deal: { id: number; ticker: string; url: string },
+): Promise<boolean> {
+  const text = [
+    `🗂 *Сетап закрыт как пропущенный*`,
+    ``,
+    `*${deal.ticker}* #${deal.id} висел без входа больше 3 дней — статус *missed*.`,
+    ``,
+    `[Открыть сделку](${deal.url})`,
+  ].join('\n');
+  return sendMarkdown(userId, text);
+}
+
+/** Open position without close after 1h / 4h / 24h */
+export async function sendPositionReminder(
+  userId: number,
+  deal: { id: number; ticker: string; stageHours: number; url: string },
+): Promise<boolean> {
+  const text = [
+    `🔔 *Напоминание · позиция*`,
+    ``,
+    `*${deal.ticker}* #${deal.id} в статусе *entered* уже ~${deal.stageHours}ч.`,
+    `Закройте сделку в расширении или на сайте, когда выйдете.`,
+    ``,
+    `[Открыть сделку](${deal.url})`,
+  ].join('\n');
+  return sendMarkdown(userId, text);
+}

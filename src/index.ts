@@ -41,6 +41,9 @@ async function main(): Promise<void> {
   // Start HTTP server
   await fastify.listen({ port: config.port, host: '0.0.0.0' });
   fastify.log.info(`Server listening on port ${config.port}`);
+  if (!config.cronSecret) {
+    fastify.log.warn('CRON_SECRET is not set — POST /api/internal/reminders will return 503');
+  }
 }
 
 main().catch((err) => {

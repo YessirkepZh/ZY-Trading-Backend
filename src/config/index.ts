@@ -38,10 +38,16 @@ function resolveJwtSecret(): string {
 // Polling with the same token from two instances steals updates from production
 const botEnabled = (env('BOT_ENABLED') ?? 'true') !== 'false';
 
+const DEFAULT_FRONTEND_URL = 'https://zy-trading-frontend-production.up.railway.app';
+
 export const config = {
   port: Number(env('PORT')) || 3001,
   nodeEnv: env('NODE_ENV') || 'development',
   corsOrigins: parseCorsOrigins(),
+  frontendUrl: (env('FRONTEND_URL')?.trim().replace(/\/$/, '') || DEFAULT_FRONTEND_URL),
+
+  /** Railway Cron → Authorization: Bearer <secret> on /api/internal/* */
+  cronSecret: env('CRON_SECRET')?.trim() || '',
 
   auth: {
     jwtSecret: resolveJwtSecret(),

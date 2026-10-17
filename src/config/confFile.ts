@@ -27,6 +27,8 @@ const FILE_KEYS: Record<string, [section: string, key: string]> = {
   LUFT_PERCENT:          ['risk', 'luft_percent'],
   RATIO:                 ['risk', 'ratio'],
   RISK_SUM:              ['risk', 'risk_sum'],
+  CRON_SECRET:           ['cron', 'secret'],
+  FRONTEND_URL:          ['http', 'frontend_url'],
 };
 
 type ConfFile = Record<string, Record<string, unknown> | undefined>;
