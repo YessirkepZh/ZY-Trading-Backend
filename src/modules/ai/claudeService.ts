@@ -12,11 +12,11 @@ const client = new Anthropic({ apiKey: config.anthropic.apiKey });
 
 const MARKET_CONTEXT: Record<MarketType, string> = {
   crypto:
-    '- Bitcoin (BTC) moving the opposite direction = warning for altcoins',
+    '- Live market context includes BTC, SPY, UUP (USD proxy). BTC opposite to an altcoin setup = warning; SPY risk-off + alt long = caution; strong UUP = tighter liquidity for risk assets',
   stocks:
-    '- SPY / QQQ moving the opposite direction = warning (broad market correlation)',
+    '- Live market context includes SPY and UUP. SPY opposite to the setup = warning (broad market correlation); strong UUP often pressure on risk assets',
   forex:
-    '- DXY (US Dollar Index) moving opposite to USD pairs = warning',
+    '- Live market context includes UUP as USD proxy (true DXY not on free APIs). UUP up = stronger dollar — warning for long USD-weak / short USD-strong pairs accordingly',
 };
 
 const PASS_ROAD_RULES = `
@@ -236,10 +236,12 @@ export async function checkSetup(params: {
   chartPanes?: ChartPane[];
   /** Consecutive closed losses ending at the latest deal; 0 = last was a win */
   lossStreak?: number;
+  /** Preformatted BTC / SPY / UUP daily context (from marketContextService) */
+  marketContext?: string;
 }): Promise<ClaudeCheckResult> {
   const {
     userId, ticker, marketType, strategy, direction, entryRaw, calcResult, checklist, ohlcvSummary,
-    screenshotUrl, chartPanes, lossStreak = 0,
+    screenshotUrl, chartPanes, lossStreak = 0, marketContext,
   } = params;
 
   const volatilityContext = calcResult.atrPercent != null
@@ -271,6 +273,7 @@ WAIT: ${formatChecklistLabels(userId, strategy, checklist.wait)}
 ${lossStreak >= 2
   ? `\nTrader psychology: ${lossStreak} consecutive closed losses. Prefer caution; mention tilt risk in warnings if recommending take.`
   : ''}
+${marketContext ? `\n${marketContext}` : ''}
 ${ohlcvSummary ? `\nLast 10 OHLCV bars:\n${ohlcvSummary}` : ''}
 `.trim();
 

@@ -1,6 +1,7 @@
 import { config } from '../../config';
 import * as dealService from '../deals/dealService';
 import * as analysisReportService from '../analytics/analysisReportService';
+import { marketContextService } from '../market';
 import { notifyNewDeal } from '../telegram/telegramService';
 import * as claudeService from './claudeService';
 import type { ClaudeCheckResult } from './types';
@@ -75,6 +76,8 @@ async function processCheckSetup(job: ClaudeJob): Promise<void> {
   if (job.dealId == null) throw new Error('check_setup: missing deal_id');
   const payload = job.payload as CheckSetupPayload;
 
+  const marketContext = await marketContextService.getMarketContextPromptBlock();
+
   const claudeCheck = await claudeService.checkSetup({
     userId: job.userId,
     ticker: payload.ticker,
@@ -88,6 +91,7 @@ async function processCheckSetup(job: ClaudeJob): Promise<void> {
     screenshotUrl: payload.screenshotUrl,
     chartPanes: payload.chartPanes,
     lossStreak: payload.lossStreak,
+    marketContext,
   });
 
   await dealService.setClaudeCheck(job.dealId, claudeCheck);
