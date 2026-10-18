@@ -1,4 +1,5 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
+import { guardUserText } from '../../ai';
 import { currentUser } from '../../auth';
 import * as dealService from '../dealService';
 import { AddDealCommentSchema } from '../schemas';
@@ -19,6 +20,12 @@ export async function addDealCommentHandler(
     return;
   }
 
+  const guarded = guardUserText(parsed.data.text, { maxLength: 2000, field: 'text' });
+  if (!guarded.ok) {
+    reply.status(400).send({ success: false, error: guarded.error });
+    return;
+  }
+
   const userId = currentUser(request).id;
   const deal = await dealService.getDealById(userId, id);
   if (!deal) {
@@ -26,6 +33,6 @@ export async function addDealCommentHandler(
     return;
   }
 
-  const comment = await dealService.addDealComment(userId, id, parsed.data.text);
+  const comment = await dealService.addDealComment(userId, id, guarded.text);
   reply.status(201).send({ success: true, comment });
 }

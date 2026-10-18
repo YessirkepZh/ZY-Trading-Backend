@@ -3,7 +3,7 @@ import * as dealService from '../deals/dealService';
 import * as analysisReportService from '../analytics/analysisReportService';
 import { marketContextService } from '../market';
 import { notifyNewDeal } from '../telegram/telegramService';
-import * as claudeService from './claudeService';
+import { getAiProvider } from './aiProvider';
 import type { ClaudeCheckResult } from './types';
 import {
   claimNextJob,
@@ -78,7 +78,7 @@ async function processCheckSetup(job: ClaudeJob): Promise<void> {
 
   const marketContext = await marketContextService.getMarketContextPromptBlock();
 
-  const claudeCheck = await claudeService.checkSetup({
+  const claudeCheck = await getAiProvider().checkSetup({
     userId: job.userId,
     ticker: payload.ticker,
     marketType: payload.marketType,
@@ -117,13 +117,13 @@ async function processAnalyzeClosed(job: ClaudeJob): Promise<void> {
     console.warn(`[claudeWorker] deal #${job.dealId} not closed yet — skipping`);
     return;
   }
-  const stats = await claudeService.analyzeClosedDeal(deal);
+  const stats = await getAiProvider().analyzeClosedDeal(deal);
   await dealService.setClaudeStats(job.dealId, stats);
 }
 
 async function processAnalysisReport(job: ClaudeJob): Promise<void> {
   const payload = job.payload as AnalysisReportPayload;
-  const { summary, contentHtml } = await claudeService.generateAnalysisReport({
+  const { summary, contentHtml } = await getAiProvider().generateAnalysisReport({
     periodFrom: payload.periodFrom,
     periodTo: payload.periodTo,
     metrics: payload.metrics,

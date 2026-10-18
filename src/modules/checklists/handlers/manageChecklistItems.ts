@@ -1,7 +1,20 @@
 import { z } from 'zod';
 import type { FastifyRequest, FastifyReply } from 'fastify';
+import { guardUserText } from '../../ai';
 import { currentUser } from '../../auth';
 import * as svc from '../checklistItemService';
+
+function guardPromptField(
+  value: string | null | undefined,
+  field: string,
+  maxLength: number,
+): { ok: true; value: string | null | undefined } | { ok: false; error: string } {
+  if (value === undefined) return { ok: true, value };
+  if (value === null || value === '') return { ok: true, value: value === null ? null : '' };
+  const guarded = guardUserText(value, { maxLength, field });
+  if (!guarded.ok) return { ok: false, error: guarded.error };
+  return { ok: true, value: guarded.text };
+}
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
 
@@ -44,8 +57,24 @@ export async function createChecklistItemHandler(
     reply.status(400).send({ success: false, error: parsed.error.flatten() });
     return;
   }
+
+  const labelG = guardPromptField(parsed.data.label, 'label', 200);
+  if (!labelG.ok) {
+    reply.status(400).send({ success: false, error: labelG.error });
+    return;
+  }
+  const descG = guardPromptField(parsed.data.description, 'description', 500);
+  if (!descG.ok) {
+    reply.status(400).send({ success: false, error: descG.error });
+    return;
+  }
+
   try {
-    const item = await svc.createItem(currentUser(request).id, parsed.data);
+    const item = await svc.createItem(currentUser(request).id, {
+      ...parsed.data,
+      label: labelG.value as string,
+      description: descG.value === undefined ? undefined : (descG.value || undefined),
+    });
     reply.status(201).send({ success: true, item });
   } catch (err) {
     request.log.error({ err }, 'createChecklistItem failed');
@@ -71,8 +100,26 @@ export async function updateChecklistItemHandler(
     reply.status(400).send({ success: false, error: parsed.error.flatten() });
     return;
   }
+
+  const labelG = guardPromptField(parsed.data.label, 'label', 200);
+  if (!labelG.ok) {
+    reply.status(400).send({ success: false, error: labelG.error });
+    return;
+  }
+  const descG = guardPromptField(parsed.data.description, 'description', 500);
+  if (!descG.ok) {
+    reply.status(400).send({ success: false, error: descG.error });
+    return;
+  }
+
   try {
-    const item = await svc.updateItem(currentUser(request).id, id, parsed.data);
+    const item = await svc.updateItem(currentUser(request).id, id, {
+      ...parsed.data,
+      ...(labelG.value !== undefined ? { label: labelG.value as string } : {}),
+      ...(parsed.data.description !== undefined
+        ? { description: descG.value === '' || descG.value === null ? null : (descG.value as string) }
+        : {}),
+    });
     reply.send({ success: true, item });
   } catch (err) {
     request.log.error({ err }, 'updateChecklistItem failed');
