@@ -12,5 +12,6 @@ export {
   assertSafeUserText,
   InputGuardError,
 } from './inputGuardrails';
+export * as ragService from './ragService';
 export { startClaudeWorker, stopClaudeWorker } from './claudeWorker';
 export type { ChartPane, ClaudeCheckResult, ClaudeStatsResult } from './types';

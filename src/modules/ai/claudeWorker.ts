@@ -4,6 +4,7 @@ import * as analysisReportService from '../analytics/analysisReportService';
 import { marketContextService } from '../market';
 import { notifyNewDeal } from '../telegram/telegramService';
 import { getAiProvider } from './aiProvider';
+import * as ragService from './ragService';
 import type { ClaudeCheckResult } from './types';
 import {
   claimNextJob,
@@ -77,6 +78,19 @@ async function processCheckSetup(job: ClaudeJob): Promise<void> {
   const payload = job.payload as CheckSetupPayload;
 
   const marketContext = await marketContextService.getMarketContextPromptBlock();
+  const similarDealsContext = await ragService.getSimilarDealsPromptBlock({
+    userId: job.userId,
+    strategy: payload.strategy,
+    excludeDealId: job.dealId,
+    fingerprint: {
+      strategy: payload.strategy,
+      marketType: payload.marketType,
+      direction: payload.direction,
+      calcResult: payload.calcResult,
+      checklist: payload.checklist,
+      ticker: payload.ticker,
+    },
+  });
 
   const claudeCheck = await getAiProvider().checkSetup({
     userId: job.userId,
@@ -92,6 +106,7 @@ async function processCheckSetup(job: ClaudeJob): Promise<void> {
     chartPanes: payload.chartPanes,
     lossStreak: payload.lossStreak,
     marketContext,
+    similarDealsContext: similarDealsContext || undefined,
   });
 
   await dealService.setClaudeCheck(job.dealId, claudeCheck);
@@ -119,6 +134,13 @@ async function processAnalyzeClosed(job: ClaudeJob): Promise<void> {
   }
   const stats = await getAiProvider().analyzeClosedDeal(deal);
   await dealService.setClaudeStats(job.dealId, stats);
+
+  // Index for future checkSetup RAG (non-fatal)
+  try {
+    await ragService.upsertDealEmbedding(deal);
+  } catch (err) {
+    console.warn(`[claudeWorker] RAG upsert failed for deal #${job.dealId}:`, err);
+  }
 }
 
 async function processAnalysisReport(job: ClaudeJob): Promise<void> {

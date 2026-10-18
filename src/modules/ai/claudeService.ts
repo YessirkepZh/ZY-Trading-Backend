@@ -238,10 +238,12 @@ export async function checkSetup(params: {
   lossStreak?: number;
   /** Preformatted BTC / SPY / UUP daily context (from marketContextService) */
   marketContext?: string;
+  /** Permission-aware similar closed deals for this user (RAG) */
+  similarDealsContext?: string;
 }): Promise<ClaudeCheckResult> {
   const {
     userId, ticker, marketType, strategy, direction, entryRaw, calcResult, checklist, ohlcvSummary,
-    screenshotUrl, chartPanes, lossStreak = 0, marketContext,
+    screenshotUrl, chartPanes, lossStreak = 0, marketContext, similarDealsContext,
   } = params;
 
   const volatilityContext = calcResult.atrPercent != null
@@ -274,6 +276,7 @@ ${lossStreak >= 2
   ? `\nTrader psychology: ${lossStreak} consecutive closed losses. Prefer caution; mention tilt risk in warnings if recommending take.`
   : ''}
 ${marketContext ? `\n${marketContext}` : ''}
+${similarDealsContext ? `\n${similarDealsContext}` : ''}
 ${ohlcvSummary ? `\nLast 10 OHLCV bars:\n${ohlcvSummary}` : ''}
 `.trim();
 
