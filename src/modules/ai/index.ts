@@ -14,5 +14,7 @@ export {
 } from './inputGuardrails';
 export * as ragService from './ragService';
 export * as aiUsageService from './aiUsageService';
+export { registerAiRoutes } from './routes';
 export { startClaudeWorker, stopClaudeWorker } from './claudeWorker';
 export type { ChartPane, ClaudeCheckResult, ClaudeStatsResult } from './types';
+export type { AiUsageSummary } from './aiUsageService';

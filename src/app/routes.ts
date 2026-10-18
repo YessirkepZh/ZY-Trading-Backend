@@ -5,6 +5,7 @@ import { copyChecklistItems, registerChecklistRoutes } from '../modules/checklis
 import { registerAnalyticsRoutes } from '../modules/analytics';
 import { registerMarketRoutes } from '../modules/market';
 import { registerReminderRoutes } from '../modules/reminders';
+import { registerAiRoutes } from '../modules/ai';
 import { notifyNewDeal, registerTelegramRoutes } from '../modules/telegram';
 
 export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
@@ -33,6 +34,7 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   registerMarketRoutes(fastify);
   registerDealRoutes(fastify, { notifier: { notifyNewDeal } });
   registerAnalyticsRoutes(fastify);
+  registerAiRoutes(fastify);
   registerTelegramRoutes(fastify);
   registerChecklistRoutes(fastify);
   registerReminderRoutes(fastify);

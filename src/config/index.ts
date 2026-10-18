@@ -86,9 +86,14 @@ export const config = {
     },
   },
 
-  /** PG-backed Claude job queue (SKIP LOCKED). Set CLAUDE_QUEUE_ENABLED=false to disable worker. */
+  /**
+   * PG-backed Claude job queue (SKIP LOCKED).
+   * CLAUDE_QUEUE_ENABLED=false — disable worker entirely.
+   * CLAUDE_WORKER_EMBEDDED=false — API process does not poll; run `npm run worker` separately.
+   */
   claudeQueue: {
     enabled: (env('CLAUDE_QUEUE_ENABLED') ?? 'true') !== 'false',
+    embedded: (env('CLAUDE_WORKER_EMBEDDED') ?? 'true') !== 'false',
   },
 
   db: {

@@ -133,9 +133,10 @@
 ## Следующий слой
 
 1. ~~AI usage log в PG~~ → done (`017_ai_usage_logs`)  
-2. Отдельный worker entrypoint  
-3. Evaluation calibration curve / UI cost summary  
-4. Rate limits + платежи  
+2. ~~Отдельный worker~~ → `npm run worker` + `CLAUDE_WORKER_EMBEDDED=false` (по умолчанию embedded)  
+3. ~~UI cost summary~~ → dashboard «Расход Claude» + `GET /api/ai/usage`  
+4. Evaluation calibration curve  
+5. Rate limits + платежи  
 
 ---
 

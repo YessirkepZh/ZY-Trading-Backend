@@ -39,8 +39,15 @@ async function main(): Promise<void> {
     fastify.log.warn('Telegram bot disabled (BOT_ENABLED=false)');
   }
 
-  // Claude job worker (PG queue, concurrency 1)
-  startClaudeWorker();
+  // Claude worker: embedded by default; set CLAUDE_WORKER_EMBEDDED=false + `npm run worker`
+  if (config.claudeQueue.enabled && config.claudeQueue.embedded) {
+    startClaudeWorker();
+    fastify.log.info('Claude worker embedded in API process');
+  } else if (config.claudeQueue.enabled) {
+    fastify.log.info('Claude worker not embedded — run standalone: npm run worker');
+  } else {
+    fastify.log.warn('Claude queue disabled (CLAUDE_QUEUE_ENABLED=false)');
+  }
 
   // Start HTTP server
   await fastify.listen({ port: config.port, host: '0.0.0.0' });

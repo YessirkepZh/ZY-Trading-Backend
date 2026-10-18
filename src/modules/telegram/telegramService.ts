@@ -19,8 +19,7 @@ export function initTelegramService(bot: TelegramBot, chatId: number): void {
   legacyChatId = chatId;
 }
 
-function getBot(): TelegramBot {
-  if (!botInstance) throw new Error('Telegram bot not initialized');
+function getBot(): TelegramBot | null {
   return botInstance;
 }
 
@@ -150,6 +149,7 @@ export async function sendScenario(
   keyboard: TelegramBot.InlineKeyboardMarkup,
 ): Promise<void> {
   const bot = getBot();
+  if (!bot) return;
   const chatId = await resolveChatId(deal.userId);
   if (chatId === null) return;
   const text = formatScenarioMessage(deal, calcResult, claudeCheck, checklist);
@@ -172,6 +172,7 @@ export async function notifyNewDeal(
 /** Returns false when the user has no linked Telegram chat */
 export async function sendText(userId: number, text: string): Promise<boolean> {
   const bot = getBot();
+  if (!bot) return false;
   const chatId = await resolveChatId(userId);
   if (chatId === null) return false;
   await bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });

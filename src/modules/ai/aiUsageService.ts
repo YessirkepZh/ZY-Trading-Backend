@@ -79,32 +79,69 @@ export async function logAiUsage(params: {
   }
 }
 
-export async function getUserUsageSummary(
-  userId: number,
-  days = 30,
-): Promise<{ calls: number; inputTokens: number; outputTokens: number; estimatedCostUsd: number }> {
-  const { rows } = await pool.query<{
-    calls: string;
-    input_tokens: string;
-    output_tokens: string;
-    estimated_cost_usd: string;
-  }>(`
-    SELECT
-      COUNT(*)::text AS calls,
-      COALESCE(SUM(input_tokens + cache_creation_input_tokens + cache_read_input_tokens), 0)::text AS input_tokens,
-      COALESCE(SUM(output_tokens), 0)::text AS output_tokens,
-      COALESCE(SUM(estimated_cost_usd), 0)::text AS estimated_cost_usd
-    FROM ai_usage_logs
-    WHERE user_id = $1
-      AND created_at >= NOW() - ($2 * INTERVAL '1 day')
-      AND ok = TRUE
-  `, [userId, days]);
+export interface AiUsageSummary {
+  days: number;
+  calls: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  estimatedCostUsd: number;
+  byPurpose: Array<{
+    purpose: string;
+    calls: number;
+    estimatedCostUsd: number;
+  }>;
+}
 
-  const r = rows[0];
+export async function getUserUsageSummary(userId: number, days = 30): Promise<AiUsageSummary> {
+  const [total, byPurpose] = await Promise.all([
+    pool.query<{
+      calls: string;
+      input_tokens: string;
+      output_tokens: string;
+      cache_read: string;
+      estimated_cost_usd: string;
+    }>(`
+      SELECT
+        COUNT(*)::text AS calls,
+        COALESCE(SUM(input_tokens + cache_creation_input_tokens), 0)::text AS input_tokens,
+        COALESCE(SUM(output_tokens), 0)::text AS output_tokens,
+        COALESCE(SUM(cache_read_input_tokens), 0)::text AS cache_read,
+        COALESCE(SUM(estimated_cost_usd), 0)::text AS estimated_cost_usd
+      FROM ai_usage_logs
+      WHERE user_id = $1
+        AND created_at >= NOW() - ($2 * INTERVAL '1 day')
+        AND ok = TRUE
+    `, [userId, days]),
+    pool.query<{
+      purpose: string;
+      calls: string;
+      estimated_cost_usd: string;
+    }>(`
+      SELECT purpose,
+             COUNT(*)::text AS calls,
+             COALESCE(SUM(estimated_cost_usd), 0)::text AS estimated_cost_usd
+      FROM ai_usage_logs
+      WHERE user_id = $1
+        AND created_at >= NOW() - ($2 * INTERVAL '1 day')
+        AND ok = TRUE
+      GROUP BY purpose
+      ORDER BY SUM(estimated_cost_usd) DESC
+    `, [userId, days]),
+  ]);
+
+  const r = total.rows[0];
   return {
+    days,
     calls: Number(r?.calls ?? 0),
     inputTokens: Number(r?.input_tokens ?? 0),
     outputTokens: Number(r?.output_tokens ?? 0),
+    cacheReadTokens: Number(r?.cache_read ?? 0),
     estimatedCostUsd: Number(r?.estimated_cost_usd ?? 0),
+    byPurpose: byPurpose.rows.map((row) => ({
+      purpose: row.purpose,
+      calls: Number(row.calls),
+      estimatedCostUsd: Number(row.estimated_cost_usd),
+    })),
   };
 }
