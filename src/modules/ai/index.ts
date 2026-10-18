@@ -13,5 +13,6 @@ export {
   InputGuardError,
 } from './inputGuardrails';
 export * as ragService from './ragService';
+export * as aiUsageService from './aiUsageService';
 export { startClaudeWorker, stopClaudeWorker } from './claudeWorker';
 export type { ChartPane, ClaudeCheckResult, ClaudeStatsResult } from './types';

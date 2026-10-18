@@ -17,6 +17,7 @@ export interface AiProvider {
     periodFrom: string;
     periodTo: string;
     metrics: AnalysisMetrics;
+    userId?: number;
   }): Promise<{ summary: string; contentHtml: string }>;
 }
 

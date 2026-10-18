@@ -6,6 +6,7 @@ import type { AnalysisMetrics } from '../analytics';
 import { formatItemForPrompt } from '../checklists';
 import type { CalculationResult, Deal } from '../deals';
 import { plannedEntryPrice } from '../deals/calculationService';
+import { logAiUsage, type AiPurpose } from './aiUsageService';
 import type { ChartPane, ClaudeCheckResult, ClaudeStatsResult } from './types';
 
 const client = new Anthropic({ apiKey: config.anthropic.apiKey });
@@ -100,6 +101,12 @@ Respond strictly in JSON:
 
 type ModelTier = keyof typeof config.anthropic.models;
 
+interface AskClaudeMeta {
+  purpose: AiPurpose;
+  userId?: number;
+  dealId?: number;
+}
+
 /**
  * One Claude request. System prompts are static per call type, so they are marked for prompt caching:
  * repeated calls within 5 minutes read them from cache, once they exceed the model's minimum cacheable size.
@@ -110,25 +117,56 @@ async function askClaude(
   system: string,
   content: Anthropic.MessageParam['content'],
   maxTokens = 4096,
+  meta?: AskClaudeMeta,
 ): Promise<string> {
-  return retry(async () => {
-    const response = await client.messages.create({
-      model: config.anthropic.models[tier],
-      max_tokens: maxTokens,
-      system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
-      messages: [{ role: 'user', content }],
-    });
+  const model = config.anthropic.models[tier];
+  const started = Date.now();
+  try {
+    return await retry(async () => {
+      const response = await client.messages.create({
+        model,
+        max_tokens: maxTokens,
+        system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
+        messages: [{ role: 'user', content }],
+      });
 
-    if (response.stop_reason === 'max_tokens') {
-      throw new Error(`Claude response truncated at max_tokens=${maxTokens}`);
+      if (response.stop_reason === 'max_tokens') {
+        throw new Error(`Claude response truncated at max_tokens=${maxTokens}`);
+      }
+      const block = response.content.find((b) => b.type === 'text');
+      if (!block) {
+        const types = response.content.map((b) => b.type).join(',') || 'empty';
+        throw new Error(`Unexpected Claude response format: stop_reason=${response.stop_reason}, blocks=${types}`);
+      }
+
+      if (meta) {
+        const u = response.usage;
+        void logAiUsage({
+          meta: { ...meta, tier, model },
+          usage: {
+            inputTokens: u.input_tokens ?? 0,
+            outputTokens: u.output_tokens ?? 0,
+            cacheCreationInputTokens: u.cache_creation_input_tokens ?? 0,
+            cacheReadInputTokens: u.cache_read_input_tokens ?? 0,
+          },
+          latencyMs: Date.now() - started,
+          ok: true,
+        });
+      }
+      return block.text;
+    });
+  } catch (err) {
+    if (meta) {
+      void logAiUsage({
+        meta: { ...meta, tier, model },
+        usage: { inputTokens: 0, outputTokens: 0, cacheCreationInputTokens: 0, cacheReadInputTokens: 0 },
+        latencyMs: Date.now() - started,
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
-    const block = response.content.find((b) => b.type === 'text');
-    if (!block) {
-      const types = response.content.map((b) => b.type).join(',') || 'empty';
-      throw new Error(`Unexpected Claude response format: stop_reason=${response.stop_reason}, blocks=${types}`);
-    }
-    return block.text;
-  });
+    throw err;
+  }
 }
 
 interface CaptionedImage {
@@ -240,10 +278,12 @@ export async function checkSetup(params: {
   marketContext?: string;
   /** Permission-aware similar closed deals for this user (RAG) */
   similarDealsContext?: string;
+  /** For usage logs */
+  dealId?: number;
 }): Promise<ClaudeCheckResult> {
   const {
     userId, ticker, marketType, strategy, direction, entryRaw, calcResult, checklist, ohlcvSummary,
-    screenshotUrl, chartPanes, lossStreak = 0, marketContext, similarDealsContext,
+    screenshotUrl, chartPanes, lossStreak = 0, marketContext, similarDealsContext, dealId,
   } = params;
 
   const volatilityContext = calcResult.atrPercent != null
@@ -288,7 +328,13 @@ ${ohlcvSummary ? `\nLast 10 OHLCV bars:\n${ohlcvSummary}` : ''}
     });
   }
 
-  const text = await askClaude('fast', buildCheckSetupSystem(marketType), withImages(userMessage, images));
+  const text = await askClaude(
+    'fast',
+    buildCheckSetupSystem(marketType),
+    withImages(userMessage, images),
+    4096,
+    { purpose: 'check_setup', userId, dealId },
+  );
   const parsed = extractJson(text) as {
     recommendation: 'take' | 'skip' | 'wait';
     confidence: number;
@@ -359,7 +405,11 @@ ${deal.claudeCheckResult ? `Рекомендация Claude при входе: $
   }
   content.push({ type: 'text', text: userMessage });
 
-  const text = await askClaude('smart', ANALYZE_DEAL_SYSTEM, content);
+  const text = await askClaude('smart', ANALYZE_DEAL_SYSTEM, content, 4096, {
+    purpose: 'analyze_closed',
+    userId: deal.userId,
+    dealId: deal.id,
+  });
 
   const parsed = extractJson(text) as {
     summary?: string;
@@ -389,8 +439,9 @@ export async function generateAnalysisReport(params: {
   periodFrom: string;
   periodTo: string;
   metrics: AnalysisMetrics;
+  userId?: number;
 }): Promise<{ summary: string; contentHtml: string }> {
-  const { periodFrom, periodTo, metrics } = params;
+  const { periodFrom, periodTo, metrics, userId } = params;
 
   const systemPrompt = `Ты — персональный торговый аналитик трейдера.
 Анализируешь статистику сделок за период и генерируешь детальный отчёт.
@@ -447,7 +498,10 @@ ${JSON.stringify(metrics.timeToEntryAnalysis, null, 2)}
 
 Сгенерируй детальный HTML отчёт с анализом и конкретными рекомендациями.`;
 
-  const text = await askClaude('smart', systemPrompt, userMessage, 8192);
+  const text = await askClaude('smart', systemPrompt, userMessage, 8192, {
+    purpose: 'analysis_report',
+    userId,
+  });
 
   const clean = text.replace(/```json|```/g, '').trim();
 

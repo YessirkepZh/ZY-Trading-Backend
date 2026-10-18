@@ -107,6 +107,7 @@ async function processCheckSetup(job: ClaudeJob): Promise<void> {
     lossStreak: payload.lossStreak,
     marketContext,
     similarDealsContext: similarDealsContext || undefined,
+    dealId: job.dealId ?? undefined,
   });
 
   await dealService.setClaudeCheck(job.dealId, claudeCheck);
@@ -149,6 +150,7 @@ async function processAnalysisReport(job: ClaudeJob): Promise<void> {
     periodFrom: payload.periodFrom,
     periodTo: payload.periodTo,
     metrics: payload.metrics,
+    userId: job.userId,
   });
   await analysisReportService.updateReportContent(payload.reportId, job.userId, {
     summary,
