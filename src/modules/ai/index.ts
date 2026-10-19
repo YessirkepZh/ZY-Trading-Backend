@@ -14,6 +14,13 @@ export {
 } from './inputGuardrails';
 export * as ragService from './ragService';
 export * as aiUsageService from './aiUsageService';
+export {
+  assertAiQuota,
+  assertBurstLimit,
+  AiQuotaExceededError,
+  BurstLimitExceededError,
+} from './quotaService';
+export { unavailableClaudeCheck } from './claudeFallback';
 export { registerAiRoutes } from './routes';
 export { startClaudeWorker, stopClaudeWorker } from './claudeWorker';
 export type { ChartPane, ClaudeCheckResult, ClaudeStatsResult } from './types';

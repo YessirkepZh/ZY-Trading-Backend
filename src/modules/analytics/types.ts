@@ -3,6 +3,7 @@ import type { Deal } from '../deals';
 import type { ClaudeEvaluation } from './claudeEvaluation';
 
 export type {
+  CalibrationPoint,
   ClaudeConfidenceBucket,
   ClaudeEvalByRec,
   ClaudeEvaluation,

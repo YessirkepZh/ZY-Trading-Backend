@@ -4,5 +4,6 @@ export type {
   AnalysisMetrics,
   AnalysisReport,
   ClaudeEvaluation,
+  CalibrationPoint,
   DashboardStats,
 } from './types';

@@ -3,6 +3,7 @@ import type { ChartPane } from './types';
 import type { AnalysisMetrics } from '../analytics/types';
 import type { CalculationResult } from '../deals/types';
 import type { ChecklistSnapshot, Direction, MarketType, Strategy } from '../../shared/trading';
+import { assertAiQuota } from './quotaService';
 
 export type ClaudeJobType = 'check_setup' | 'analyze_closed' | 'analysis_report';
 
@@ -94,6 +95,8 @@ export async function enqueueJob(params: {
     `, [params.dealId, params.jobType]);
     if (existing.rows[0]) return existing.rows[0].id;
   }
+
+  await assertAiQuota(params.userId, params.jobType);
 
   const result = await pool.query<{ id: number }>(`
     INSERT INTO claude_jobs (user_id, deal_id, job_type, payload, max_attempts)

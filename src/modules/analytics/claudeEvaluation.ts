@@ -23,6 +23,16 @@ export interface ClaudeConfidenceBucket {
   avgConfidence: number;
 }
 
+/** One point on claimed-confidence vs actual win-rate curve (take only) */
+export interface CalibrationPoint {
+  label: string;
+  claimedConfidence: number;
+  actualWinRate: number;
+  count: number;
+  /** actualWinRate − claimedConfidence; negative = overconfident */
+  delta: number;
+}
+
 /**
  * How well checkSetup recommendations match closed win/loss outcomes.
  * wait is shown in byRecommendation but excluded from accuracyPercent
@@ -35,6 +45,13 @@ export interface ClaudeEvaluation {
   byRecommendation: ClaudeEvalByRec[];
   /** Actual win rate of take calls, grouped by stated confidence */
   confidenceBuckets: ClaudeConfidenceBucket[];
+  /** Curve points for charts (same buckets) */
+  calibrationCurve: CalibrationPoint[];
+  /**
+   * Expected Calibration Error in percentage points (0 = perfect).
+   * Weighted mean |actualWinRate − avgConfidence| over take buckets.
+   */
+  expectedCalibrationError: number | null;
 }
 
 const REC_ORDER: ClaudeRecommendation[] = ['take', 'skip', 'wait'];
@@ -128,10 +145,30 @@ export function computeClaudeEvaluation(deals: ClosedDealRow[]): ClaudeEvaluatio
     })
     .filter((b) => b.count > 0);
 
+  const calibrationCurve: CalibrationPoint[] = confidenceBuckets.map((b) => ({
+    label: b.label,
+    claimedConfidence: b.avgConfidence,
+    actualWinRate: b.winRate,
+    count: b.count,
+    delta: round2(b.winRate - b.avgConfidence),
+  }));
+
+  let expectedCalibrationError: number | null = null;
+  const takeN = confidenceBuckets.reduce((s, b) => s + b.count, 0);
+  if (takeN > 0) {
+    const ece = confidenceBuckets.reduce(
+      (s, b) => s + (b.count / takeN) * Math.abs(b.winRate - b.avgConfidence),
+      0,
+    );
+    expectedCalibrationError = round2(ece);
+  }
+
   return {
     evaluatedDeals: evaluated.length,
     accuracyPercent,
     byRecommendation,
     confidenceBuckets,
+    calibrationCurve,
+    expectedCalibrationError,
   };
 }

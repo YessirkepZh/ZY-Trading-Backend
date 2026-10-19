@@ -96,6 +96,21 @@ export const config = {
     embedded: (env('CLAUDE_WORKER_EMBEDDED') ?? 'true') !== 'false',
   },
 
+  /**
+   * Daily AI quotas per user (UTC day via PG date_trunc). $0 — counts ai_usage_logs + pending jobs.
+   * Same caps for admin and user. Set AI_QUOTA_ENABLED=false to disable.
+   */
+  aiQuota: {
+    enabled: (env('AI_QUOTA_ENABLED') ?? 'true') !== 'false',
+    dailyCheckSetup: Number(env('AI_QUOTA_DAILY_CHECK_SETUP')) || 40,
+    dailyAnalyzeClosed: Number(env('AI_QUOTA_DAILY_ANALYZE_CLOSED')) || 40,
+    dailyAnalysisReport: Number(env('AI_QUOTA_DAILY_ANALYSIS_REPORT')) || 5,
+    /** 0 = no USD cap; estimate from ai_usage_logs */
+    dailyCostUsd: Number(env('AI_QUOTA_DAILY_COST_USD')) || 2,
+    /** Burst: createNote / analysis per user per minute */
+    burstPerMinute: Number(env('AI_BURST_PER_MINUTE')) || 10,
+  },
+
   db: {
     connectionString: required('DATABASE_URL'),
   },

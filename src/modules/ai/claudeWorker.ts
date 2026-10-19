@@ -4,8 +4,8 @@ import * as analysisReportService from '../analytics/analysisReportService';
 import { marketContextService } from '../market';
 import { notifyNewDeal } from '../telegram/telegramService';
 import { getAiProvider } from './aiProvider';
+import { unavailableClaudeCheck } from './claudeFallback';
 import * as ragService from './ragService';
-import type { ClaudeCheckResult } from './types';
 import {
   claimNextJob,
   markJobDone,
@@ -20,26 +20,15 @@ const POLL_MS = 2_000;
 let timer: ReturnType<typeof setInterval> | null = null;
 let busy = false;
 
-/** Fallback when Claude never answered — Telegram still gets the calc + keyboard. */
-function unavailableClaudeCheck(error: string): ClaudeCheckResult {
-  return {
-    recommendation: 'wait',
-    confidence: 0,
-    reasoning: `Claude unavailable: ${error}`,
-    reasoningRu:
-      'Claude не ответил после нескольких попыток. Решение принимай самостоятельно по расчёту выше.',
-    warnings: ['Claude check failed — setup not reviewed by AI'],
-    warningsRu: ['Claude недоступен — AI-проверка сетапа пропущена'],
-    checkedAt: new Date(),
-  };
-}
-
 async function notifyCheckSetupFallback(job: ClaudeJob, error: string): Promise<void> {
   if (job.dealId == null) return;
   const payload = job.payload as CheckSetupPayload;
   if (!payload.notifyTelegram) return;
 
-  const claudeCheck = unavailableClaudeCheck(error);
+  const claudeCheck = unavailableClaudeCheck(
+    'Claude не ответил после нескольких попыток. Решение принимай самостоятельно по расчёту выше.',
+    `Claude unavailable: ${error}`,
+  );
   try {
     await dealService.setClaudeCheck(job.dealId, claudeCheck);
     await dealService.updateDealStatus(job.dealId, 'notified');

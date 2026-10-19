@@ -1,6 +1,11 @@
 import TelegramBot from 'node-telegram-bot-api';
 import { config } from '../../config';
-import { claudeJobService } from '../ai';
+import {
+  AiQuotaExceededError,
+  claudeJobService,
+  unavailableClaudeCheck,
+} from '../ai';
+import { notifyNewDeal } from './telegramService';
 import { dashboardService } from '../analytics';
 import { findOwner, findUserByTelegramId, type AuthUser } from '../auth';
 import { calculationService, dealService } from '../deals';
@@ -164,28 +169,43 @@ export function initBot(): void {
       const id = await dealService.createDeal(user.id, payload, calcResult);
       const ohlcvSummary = marketDataService.formatOhlcvSummary(bars);
       const lossStreak = await dealService.getCurrentLossStreak(user.id);
-      await claudeJobService.enqueueJob({
-        userId: user.id,
-        dealId: id,
-        jobType: 'check_setup',
-        payload: {
-          ticker,
-          marketType: 'crypto',
-          strategy: 'Пробой',
-          direction,
-          entryRaw,
-          calcResult,
-          checklist: { plus: [], minus: [], wait: [] },
-          ohlcvSummary,
-          lossStreak,
-          notifyTelegram: true,
-        },
-      });
-
-      await bot.sendMessage(
-        msg.chat.id,
-        `✅ Сделка #${id} (${ticker}) создана. Claude проверяет сетап — полный разбор придёт следом.`,
-      );
+      const emptyChecklist = { plus: [] as string[], minus: [] as string[], wait: [] as string[] };
+      try {
+        await claudeJobService.enqueueJob({
+          userId: user.id,
+          dealId: id,
+          jobType: 'check_setup',
+          payload: {
+            ticker,
+            marketType: 'crypto',
+            strategy: 'Пробой',
+            direction,
+            entryRaw,
+            calcResult,
+            checklist: emptyChecklist,
+            ohlcvSummary,
+            lossStreak,
+            notifyTelegram: true,
+          },
+        });
+        await bot.sendMessage(
+          msg.chat.id,
+          `✅ Сделка #${id} (${ticker}) создана. Claude проверяет сетап — полный разбор придёт следом.`,
+        );
+      } catch (err) {
+        if (!(err instanceof AiQuotaExceededError)) throw err;
+        const claudeCheck = unavailableClaudeCheck(
+          `Лимит AI на сегодня (${err.used}/${err.limit}). Расчёт без проверки Claude.`,
+        );
+        await dealService.setClaudeCheck(id, claudeCheck);
+        await dealService.updateDealStatus(id, 'notified');
+        const deal = await dealService.getDealById(user.id, id);
+        if (deal) await notifyNewDeal(deal, calcResult, claudeCheck, emptyChecklist);
+        await bot.sendMessage(
+          msg.chat.id,
+          `✅ Сделка #${id} создана без Claude: ${err.message}`,
+        );
+      }
     } catch (err) {
       console.error('[bot manual input]', err);
       await bot.sendMessage(msg.chat.id, `❌ Ошибка: ${(err as Error).message}`);

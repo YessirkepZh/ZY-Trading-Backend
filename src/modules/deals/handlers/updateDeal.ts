@@ -1,5 +1,5 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
-import { claudeJobService } from '../../ai';
+import { AiQuotaExceededError, claudeJobService } from '../../ai';
 import { storageService } from '../../storage';
 import { currentUser } from '../../auth';
 import * as calculationService from '../calculationService';
@@ -128,7 +128,11 @@ export async function updateDealHandler(
         payload: {},
       });
     } catch (err) {
-      console.error('enqueue analyze_closed failed (non-fatal)', id, err);
+      if (err instanceof AiQuotaExceededError) {
+        console.warn('analyze_closed skipped — AI quota', id, err.message);
+      } else {
+        console.error('enqueue analyze_closed failed (non-fatal)', id, err);
+      }
     }
   } else {
     await dealService.updateDealStatus(id, status, {

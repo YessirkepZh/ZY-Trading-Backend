@@ -82,7 +82,7 @@
 |-------|--------|---------|
 | RAG pgvector + user_id | **optimal-alt** | structured-v1, migration 016 |
 | Market context BTC/SPY/USD | **optimal-alt** | UUP вместо DXY, cache 15m |
-| Evaluation take/skip + dashboard | partial | buckets есть; полной калибровочной кривой нет |
+| Evaluation take/skip + dashboard | done | accuracy + ECE + calibration curve chart |
 | Reminders / auto-missed | done | Railway Cron + `/api/internal/reminders` |
 
 ---
@@ -111,7 +111,7 @@
 | Пункт | Статус |
 |-------|--------|
 | Kaspi / Halyk / тарифы / квоты | todo |
-| Rate limit / hard caps | todo |
+| Rate limit / hard caps | done | daily AI quotas + burst/min; same for admin/user |
 | Ребренд ZY → EdgeMark, лендинг, домен | todo |
 | k6, PgBouncer, multi-instance, алерты | todo |
 | Отдельный worker для scale-out | todo |
@@ -132,11 +132,10 @@
 
 ## Следующий слой
 
-1. ~~AI usage log в PG~~ → done (`017_ai_usage_logs`)  
-2. ~~Отдельный worker~~ → `npm run worker` + `CLAUDE_WORKER_EMBEDDED=false` (по умолчанию embedded)  
-3. ~~UI cost summary~~ → dashboard «Расход Claude» + `GET /api/ai/usage`  
-4. Evaluation calibration curve  
-5. Rate limits + платежи  
+1. ~~AI usage / worker / cost UI / quotas / calibration~~ → done  
+2. Платежи (Kaspi/Halyk) + тарифы  
+3. Ребренд / лендинг / домен  
+4. LangGraph + MCP (после оплаты)  
 
 ---
 

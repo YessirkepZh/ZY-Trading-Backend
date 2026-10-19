@@ -1,6 +1,12 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { claudeJobService } from '../../ai';
+import { config } from '../../../config';
+import {
+  AiQuotaExceededError,
+  BurstLimitExceededError,
+  assertBurstLimit,
+  claudeJobService,
+} from '../../ai';
 import { currentUser } from '../../auth';
 import * as analyticsService from '../analyticsService';
 import * as analysisReportService from '../analysisReportService';
@@ -24,6 +30,20 @@ export async function createAnalysisHandler(
     const { periodFrom, periodTo } = parsed.data;
     const userId = currentUser(request).id;
 
+    try {
+      assertBurstLimit(
+        `analysis:${userId}`,
+        config.aiQuota.burstPerMinute,
+        60_000,
+      );
+    } catch (err) {
+      if (err instanceof BurstLimitExceededError) {
+        reply.status(429).send({ success: false, error: err.message, code: err.code });
+        return;
+      }
+      throw err;
+    }
+
     const { metrics } = await analyticsService.computeMetrics(userId, periodFrom, periodTo);
 
     if (metrics.closedDeals < 3) {
@@ -34,7 +54,6 @@ export async function createAnalysisHandler(
       return;
     }
 
-    // Stub report so the client can poll by id while Claude runs
     const id = await analysisReportService.saveReport({
       userId,
       periodFrom, periodTo,
@@ -44,11 +63,28 @@ export async function createAnalysisHandler(
       summary: analysisReportService.PENDING_REPORT_SUMMARY,
     });
 
-    await claudeJobService.enqueueJob({
-      userId,
-      jobType: 'analysis_report',
-      payload: { reportId: id, periodFrom, periodTo, metrics },
-    });
+    try {
+      await claudeJobService.enqueueJob({
+        userId,
+        jobType: 'analysis_report',
+        payload: { reportId: id, periodFrom, periodTo, metrics },
+      });
+    } catch (err) {
+      if (err instanceof AiQuotaExceededError) {
+        await analysisReportService.updateReportContent(id, userId, {
+          summary: 'Лимит AI',
+          contentHtml: `<p style="color:#f44336">${err.message}</p>`,
+        });
+        reply.status(429).send({
+          success: false,
+          error: err.message,
+          code: err.code,
+          id,
+        });
+        return;
+      }
+      throw err;
+    }
 
     reply.send({
       success: true,
