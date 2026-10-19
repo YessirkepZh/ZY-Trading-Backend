@@ -40,10 +40,10 @@ const UpdateItemSchema = z.object({
 // ── Groups — read-only ────────────────────────────────────────────────────────
 
 export async function getGroupsHandler(
-  _request: FastifyRequest,
+  request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
-  reply.send({ success: true, groups: svc.getAllGroups() });
+  reply.send({ success: true, groups: svc.getGroupsForUser(currentUser(request).id) });
 }
 
 // ── Items CRUD ────────────────────────────────────────────────────────────────

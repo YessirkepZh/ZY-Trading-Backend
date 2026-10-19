@@ -9,6 +9,7 @@ interface GroupRow {
   id: number;
   name: string;
   position: number;
+  user_id: number | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -33,6 +34,8 @@ export interface ChecklistGroup {
   id: number;
   name: string;
   position: number;
+  /** null = system/shared strategy group */
+  userId: number | null;
 }
 
 export interface ChecklistItemPublic {
@@ -84,7 +87,12 @@ let cachedGroups: ChecklistGroup[] = [];
 let cachedItemsByUser = new Map<number, ChecklistItemPublic[]>();
 
 function mapGroup(row: GroupRow): ChecklistGroup {
-  return { id: row.id, name: row.name, position: row.position };
+  return {
+    id: row.id,
+    name: row.name,
+    position: row.position,
+    userId: row.user_id ?? null,
+  };
 }
 
 function mapItem(row: ItemRow): ChecklistItemPublic {
@@ -103,7 +111,12 @@ function mapItem(row: ItemRow): ChecklistItemPublic {
 
 async function loadCache(): Promise<void> {
   const [groupsResult, itemsResult] = await Promise.all([
-    pool.query<GroupRow>(`SELECT * FROM checklist_groups ORDER BY position, id`),
+    pool.query<GroupRow>(`
+      SELECT id, name, position, user_id, created_at, updated_at
+      FROM checklist_groups
+      WHERE archived_at IS NULL
+      ORDER BY position, id
+    `),
     pool.query<ItemRow>(`SELECT * FROM checklist_items ORDER BY group_id, item_type, position, id`),
   ]);
   const byUser = new Map<number, ChecklistItemPublic[]>();
@@ -161,13 +174,19 @@ export function getChecklistForStrategy(userId: number, strategy: Strategy): Cac
 
 // ── Async read (cache) ────────────────────────────────────────────────────────
 
+/** System groups (user_id NULL) plus this user's custom strategy groups. */
+export function getGroupsForUser(userId: number): ChecklistGroup[] {
+  return cachedGroups.filter((g) => g.userId == null || g.userId === userId);
+}
+
+/** @deprecated prefer getGroupsForUser — returns all non-archived groups */
 export function getAllGroups(): ChecklistGroup[] {
   return cachedGroups;
 }
 
 export function getGroupsWithItems(userId: number): ChecklistGroupWithItems[] {
   const items = userItems(userId);
-  return cachedGroups.map((g) => ({
+  return getGroupsForUser(userId).map((g) => ({
     ...g,
     items: items.filter((i) => i.groupId === g.id),
   }));

@@ -10,6 +10,7 @@ import {
 import { marketDataService } from '../../market';
 import { storageService } from '../../storage';
 import { currentUser } from '../../auth';
+import { resolveRiskForDeal } from '../../tradingSettings';
 import * as dealService from '../dealService';
 import { CreateNoteSchema } from '../schemas';
 import { prepareSetup, SetupValidationError } from '../setupService';
@@ -51,7 +52,7 @@ async function createNote(
 
     const {
       ticker, marketType, strategy, direction,
-      entryRaw, customStop, riskPercent, ratio, luftPercent, riskSum, checklist,
+      entryRaw, customStop, riskPresetId, checklist,
       screenshot, chart,
     } = input;
 
@@ -64,7 +65,19 @@ async function createNote(
       return;
     }
 
-    const { calcResult, bars, atrSource } = await prepareSetup(input);
+    const resolved = await resolveRiskForDeal(userId, strategy, riskPresetId);
+    const riskPercent = input.riskPercent ?? resolved.riskPercent;
+    const ratio = input.ratio ?? resolved.ratio;
+    const luftPercent = input.luftPercent ?? resolved.luftPercent;
+    const riskSum = input.riskSum ?? resolved.riskSum;
+
+    const { calcResult, bars, atrSource } = await prepareSetup({
+      ...input,
+      riskPercent,
+      ratio,
+      luftPercent,
+      riskSum,
+    });
     request.log.info({
       ticker,
       atrSource,

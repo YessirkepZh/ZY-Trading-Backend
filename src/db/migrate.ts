@@ -20,6 +20,7 @@ const migrations = [
   '015_claude_jobs.sql',
   '016_deal_embeddings.sql',
   '017_ai_usage_logs.sql',
+  '018_strategies_risk_presets.sql',
 ];
 
 // Migrations that existed before tracking was introduced — the only ones bootstrap may mark as applied

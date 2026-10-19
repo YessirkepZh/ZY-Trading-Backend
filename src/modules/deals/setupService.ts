@@ -41,8 +41,15 @@ export interface PreparedSetup {
   atrSource: 'indicator' | 'extension' | 'api';
 }
 
+type PreparedSetupInput = PreviewSetupInput & {
+  riskPercent: number;
+  ratio: number;
+  luftPercent: number;
+  riskSum: number;
+};
+
 /** Validates the trader's input, loads candles when needed and calculates entry/SL/TP */
-export async function prepareSetup(input: PreviewSetupInput): Promise<PreparedSetup> {
+export async function prepareSetup(input: PreparedSetupInput): Promise<PreparedSetup> {
   const {
     ticker, marketType, direction, entryRaw, customStop,
     riskPercent, ratio, luftPercent, riskSum, atrOverride, passRoadOverride, dayOpen,

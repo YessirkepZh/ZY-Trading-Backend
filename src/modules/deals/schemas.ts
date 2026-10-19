@@ -7,14 +7,16 @@ export const CreateNoteSchema = z.object({
     .max(20)
     .transform((s) => s.toUpperCase()),
   marketType: z.enum(['crypto', 'stocks', 'forex']),
-  strategy: z.enum(['Пробой', 'Ложный Пробой', 'Отбой']),
+  strategy: z.string().min(1).max(80),
   direction: z.enum(['long', 'short']),
   entryRaw: z.number().positive(),
   customStop: z.number().positive().optional(),
-  riskPercent: z.number().min(1).max(100).default(15),
-  ratio: z.number().min(1).max(10).default(3),
-  luftPercent: z.number().min(0).max(50).default(20),
-  riskSum: z.number().positive().default(15),
+  /** When set, overrides strategy default / user default risk preset */
+  riskPresetId: z.number().int().positive().optional(),
+  riskPercent: z.number().min(1).max(100).optional(),
+  ratio: z.number().min(1).max(10).optional(),
+  luftPercent: z.number().min(0).max(50).optional(),
+  riskSum: z.number().positive().optional(),
   checklist: z
     .object({
       plus: z.array(z.string()),
@@ -75,7 +77,7 @@ export type UploadScreenshotInput = z.infer<typeof UploadScreenshotSchema>;
 
 export const GetDealsSchema = z.object({
   status: z.enum(['created', 'notified', 'entered', 'closed', 'missed']).optional(),
-  strategy: z.enum(['Пробой', 'Ложный Пробой', 'Отбой']).optional(),
+  strategy: z.string().min(1).max(80).optional(),
   // Positions in progress plus recent setups still waiting for an entry
   open: z.enum(['true', 'false']).transform((v) => v === 'true').optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),

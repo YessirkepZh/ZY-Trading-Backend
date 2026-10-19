@@ -192,12 +192,12 @@ function extractJson(text: string): unknown {
 }
 
 function strategyToEnglish(strategy: Strategy): string {
-  const map: Record<Strategy, string> = {
+  const map: Record<string, string> = {
     'Пробой': 'Breakout',
     'Ложный Пробой': 'False Breakout',
     'Отбой': 'Bounce',
   };
-  return map[strategy];
+  return map[strategy] ?? strategy;
 }
 
 /** TradingView resolution → human timeframe: "5" → "5m", "240" → "4h", "1D" stays */

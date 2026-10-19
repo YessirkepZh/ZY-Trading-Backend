@@ -1,6 +1,7 @@
 export type MarketType = 'crypto' | 'stocks' | 'forex';
 export type Direction = 'long' | 'short';
-export type Strategy = 'Пробой' | 'Ложный Пробой' | 'Отбой';
+/** Strategy name — system defaults + user-defined; stored as text on deals */
+export type Strategy = string;
 
 export interface ChecklistSnapshot {
   plus: string[];

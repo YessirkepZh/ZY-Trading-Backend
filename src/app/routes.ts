@@ -7,10 +7,14 @@ import { registerMarketRoutes } from '../modules/market';
 import { registerReminderRoutes } from '../modules/reminders';
 import { registerAiRoutes } from '../modules/ai';
 import { notifyNewDeal, registerTelegramRoutes } from '../modules/telegram';
+import { forkDefaultsForUser, registerTradingSettingsRoutes } from '../modules/tradingSettings';
 
 export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   registerAuth(fastify, {
-    onUserCreated: (userId, invitedBy) => copyChecklistItems(invitedBy, userId),
+    onUserCreated: async (userId, invitedBy) => {
+      await forkDefaultsForUser(userId);
+      await copyChecklistItems(invitedBy, userId);
+    },
   });
 
   // Error handler
@@ -35,6 +39,7 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   registerDealRoutes(fastify, { notifier: { notifyNewDeal } });
   registerAnalyticsRoutes(fastify);
   registerAiRoutes(fastify);
+  registerTradingSettingsRoutes(fastify);
   registerTelegramRoutes(fastify);
   registerChecklistRoutes(fastify);
   registerReminderRoutes(fastify);

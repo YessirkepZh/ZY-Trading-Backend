@@ -1,4 +1,4 @@
-import type { MarketType, Strategy } from '../../shared/trading';
+import type { MarketType } from '../../shared/trading';
 import type { Deal } from '../deals';
 import type { ClaudeEvaluation } from './claudeEvaluation';
 
@@ -59,7 +59,7 @@ export interface ChecklistStatItem {
   key: string;
   label: string;
   type: 'plus' | 'minus' | 'wait';
-  strategy: Strategy;
+  strategy: string;
   inWins: number;
   inLosses: number;
   total: number;
@@ -74,7 +74,7 @@ export interface DashboardStats {
   maxDrawdownR: number;
   maxDrawdownUsd: number;
   avgDealsPerDay: number;
-  byStrategy: Record<Strategy, StrategyStats>;
+  byStrategy: Record<string, StrategyStats>;
   byMarket: Record<MarketType, MarketStats>;
   weeklyPerformance: WeeklyPerformancePoint[];
   dealsPerDay: DailyCount[];

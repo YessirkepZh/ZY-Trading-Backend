@@ -130,12 +130,26 @@
 
 ---
 
+## Динамические настройки трейдера
+
+| Пункт | Статус | Заметки |
+|-------|--------|---------|
+| Templates → fork на user create | done | `risk_preset_templates` / `strategy_templates`, migration 018 |
+| Risk presets CRUD + archive | done | market-agnostic поля; system нельзя archive |
+| Strategies CRUD + archive | done | system нельзя rename/archive; open deals ок |
+| resolveRisk в createNote / preview / bot | done | |
+| Frontend «Риск и стратегии» | done | `/settings/trading` |
+| Extension silent refresh | done | strategies + presets + checklists |
+
+---
+
 ## Следующий слой
 
 1. ~~AI usage / worker / cost UI / quotas / calibration~~ → done  
-2. Платежи (Kaspi/Halyk) + тарифы  
-3. Ребренд / лендинг / домен  
-4. LangGraph + MCP (после оплаты)  
+2. ~~Динамические strategies / risk presets~~ → done  
+3. Платежи (Kaspi/Halyk) + тарифы  
+4. Ребренд / лендинг / домен  
+5. LangGraph + MCP (после оплаты)  
 
 ---
 

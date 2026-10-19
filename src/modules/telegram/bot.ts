@@ -10,6 +10,7 @@ import { dashboardService } from '../analytics';
 import { findOwner, findUserByTelegramId, type AuthUser } from '../auth';
 import { calculationService, dealService } from '../deals';
 import { marketDataService } from '../market';
+import { resolveRiskForDeal } from '../tradingSettings';
 import { initTelegramService } from './telegramService';
 import {
   formatClaudeReasoningRu,
@@ -141,13 +142,14 @@ export function initBot(): void {
       }
 
       const { bars, currentBar } = await marketDataService.getMarketData(ticker, 'crypto');
+      const risk = await resolveRiskForDeal(user.id, 'Пробой');
       const calcResult = calculationService.calculateDeal({
         direction,
         entryRaw,
-        riskPercent: config.risk.cryptoDefault,
-        ratio: config.risk.ratio,
-        luftPercent: config.risk.luftPercent,
-        riskSum: config.risk.riskSum,
+        riskPercent: risk.riskPercent,
+        ratio: risk.ratio,
+        luftPercent: risk.luftPercent,
+        riskSum: risk.riskSum,
         customStop,
         bars,
         currentBar,
@@ -160,10 +162,10 @@ export function initBot(): void {
         direction,
         entryRaw,
         customStop,
-        riskPercent: config.risk.cryptoDefault,
-        ratio: config.risk.ratio,
-        luftPercent: config.risk.luftPercent,
-        riskSum: config.risk.riskSum,
+        riskPercent: risk.riskPercent,
+        ratio: risk.ratio,
+        luftPercent: risk.luftPercent,
+        riskSum: risk.riskSum,
       };
 
       const id = await dealService.createDeal(user.id, payload, calcResult);
