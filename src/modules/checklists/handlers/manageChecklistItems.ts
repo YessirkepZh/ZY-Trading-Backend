@@ -43,6 +43,7 @@ export async function getGroupsHandler(
   request: FastifyRequest,
   reply: FastifyReply,
 ): Promise<void> {
+  await svc.reloadChecklistCache();
   reply.send({ success: true, groups: svc.getGroupsForUser(currentUser(request).id) });
 }
 

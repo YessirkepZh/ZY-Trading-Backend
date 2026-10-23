@@ -137,6 +137,11 @@ export async function initChecklistCache(): Promise<void> {
   await loadCache();
 }
 
+/** Settings and extension reads must see descriptions written outside this process. */
+export async function reloadChecklistCache(): Promise<void> {
+  await loadCache();
+}
+
 function refreshCache(): void {
   loadCache().catch((err) =>
     console.error('[checklistItemService] cache refresh failed:', err),

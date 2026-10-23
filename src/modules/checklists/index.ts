@@ -4,5 +4,6 @@ export {
   getChecklistForStrategy,
   getLabelByKey,
   initChecklistCache,
+  reloadChecklistCache,
 } from './checklistItemService';
 export { registerChecklistRoutes } from './routes';

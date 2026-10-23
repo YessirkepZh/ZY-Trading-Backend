@@ -15,6 +15,7 @@ export async function getChecklistItemsHandler(
 ): Promise<void> {
   const { groupId, strategy } = request.query;
   const userId = currentUser(request).id;
+  await svc.reloadChecklistCache();
 
   if (groupId !== undefined) {
     const id = parseInt(groupId, 10);
@@ -64,6 +65,7 @@ export async function getChecklistForExtensionHandler(
   reply: FastifyReply,
 ): Promise<void> {
   const userId = currentUser(request).id;
+  await svc.reloadChecklistCache();
   const groups = svc.getGroupsForUser(userId);
   const items = svc.getAllItems(userId);
 
